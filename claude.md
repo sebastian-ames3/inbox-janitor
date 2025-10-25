@@ -2,7 +2,7 @@
 
 **Last Updated:** 2025-10-25
 **Status:** Pre-MVP Development
-**Current Phase:** Architecture & Security Planning
+**Current Phase:** Week 1 - Foundation & Railway Deployment
 
 ---
 
@@ -318,6 +318,44 @@ pytest tests/safety/test_no_permanent_delete_method.py
 - [ ] >80% user satisfaction
 - [ ] 0 OAuth token leaks
 - [ ] 0 database incidents
+
+---
+
+## Git Workflow & Deployment
+
+### GitHub Push & Merge Policy
+
+**CRITICAL RULES - NEVER VIOLATE:**
+
+1. **ALWAYS wait for CI/CD checks to complete** before merging
+   - Never force push to main/master
+   - Never bypass branch protection rules
+   - Never use `--no-verify` or skip hooks
+
+2. **ALWAYS wait for Railway deployment to succeed** before considering a push complete
+   - After pushing to GitHub, monitor Railway deployment logs
+   - Verify the build completes successfully
+   - Test the deployed app on Railway domain
+   - If deployment fails, fix the issue before moving on
+
+3. **NEVER commit secrets to the repository**
+   - GitHub push protection will block API keys
+   - Use placeholder values in documentation files
+   - Keep real secrets in `.env` (gitignored) and Railway Variables only
+
+4. **Deployment Verification Checklist:**
+   - [ ] Code pushed to GitHub
+   - [ ] GitHub Actions/checks passed (if configured)
+   - [ ] Railway build completed (check build logs)
+   - [ ] Railway deployment successful (check runtime logs)
+   - [ ] Health check endpoint returns 200 OK
+   - [ ] No errors in Railway logs
+
+**If Railway deployment fails:**
+- Read build logs for errors (package issues, syntax errors)
+- Read runtime logs for startup errors (missing env vars, database connection)
+- Fix the issue locally, commit, and push again
+- Repeat until deployment succeeds
 
 ---
 
