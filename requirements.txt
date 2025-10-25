@@ -8,6 +8,7 @@ pydantic-settings==2.6.1
 # Database
 sqlalchemy==2.0.36
 psycopg2-binary==2.9.10
+asyncpg==0.30.0
 alembic==1.14.0
 
 # Authentication & OAuth
@@ -18,7 +19,7 @@ google-auth-oauthlib==1.2.1
 
 # Background Tasks
 celery[redis]==5.4.0
-redis==5.2.0
+redis[asyncio]==5.2.0
 
 # Security & Encryption
 cryptography==44.0.0
@@ -26,7 +27,7 @@ python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
 
 # Email
-postmarkhttpclient==0.5.5
+postmarker==1.0
 
 # AI
 openai==1.54.0
