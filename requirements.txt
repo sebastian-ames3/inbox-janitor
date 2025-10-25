@@ -27,7 +27,7 @@ python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
 
 # Email
-python-postmark==1.0.1
+python-postmark==0.7.0
 
 # AI
 openai==1.54.0
