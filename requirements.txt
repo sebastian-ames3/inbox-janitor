@@ -19,7 +19,7 @@ google-auth-oauthlib==1.2.1
 
 # Background Tasks
 celery[redis]==5.4.0
-redis[asyncio]==5.2.0
+redis==5.2.0
 
 # Security & Encryption
 cryptography==44.0.0
@@ -27,7 +27,7 @@ python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
 
 # Email
-postmarker==1.0
+python-postmark==1.0.1
 
 # AI
 openai==1.54.0
