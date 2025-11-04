@@ -6,6 +6,26 @@
 
 ---
 
+## 🚨 CRITICAL GIT WORKFLOW RULE 🚨
+
+**NEVER PUSH DIRECTLY TO MAIN BRANCH**
+
+**REQUIRED workflow for ALL changes:**
+1. Create feature branch: `git checkout -b feature/description`
+2. Make changes and commit
+3. Push feature branch: `git push -u origin feature/description`
+4. Create pull request: `gh pr create ...`
+5. WAIT for CI/CD checks to pass
+6. WAIT for Railway deployment to succeed
+7. User reviews and approves PR
+8. Merge PR (only after all checks pass)
+
+**No exceptions. All changes via pull requests.**
+
+See `skills/git-workflow.md` for complete workflow.
+
+---
+
 ## AI Dev Workflow Commands
 
 When building new features, use this 3-step structured workflow for better control and reviewable progress:
@@ -379,39 +399,56 @@ pytest tests/safety/test_no_permanent_delete_method.py
 
 ## Git Workflow & Deployment
 
-### GitHub Push & Merge Policy
+### GitHub Pull Request Workflow (REQUIRED)
 
-**CRITICAL RULES - NEVER VIOLATE:**
+**CRITICAL: NEVER push directly to main. ALL changes via pull requests.**
 
-1. **ALWAYS wait for CI/CD checks to complete** before merging
-   - Never force push to main/master
-   - Never bypass branch protection rules
-   - Never use `--no-verify` or skip hooks
+**Required Workflow:**
 
-2. **ALWAYS wait for Railway deployment to succeed** before considering a push complete
-   - After pushing to GitHub, monitor Railway deployment logs
-   - Verify the build completes successfully
-   - Test the deployed app on Railway domain
-   - If deployment fails, fix the issue before moving on
+1. **Create Feature Branch**
+   ```bash
+   git checkout main
+   git pull origin main
+   git checkout -b feature/your-feature-name
+   ```
 
-3. **NEVER commit secrets to the repository**
-   - GitHub push protection will block API keys
-   - Use placeholder values in documentation files
-   - Keep real secrets in `.env` (gitignored) and Railway Variables only
+2. **Make Changes and Commit**
+   ```bash
+   git add .
+   git commit -m "Your commit message"
+   git push -u origin feature/your-feature-name
+   ```
 
-4. **Deployment Verification Checklist:**
-   - [ ] Code pushed to GitHub
-   - [ ] GitHub Actions/checks passed (if configured)
-   - [ ] Railway build completed (check build logs)
-   - [ ] Railway deployment successful (check runtime logs)
-   - [ ] Health check endpoint returns 200 OK
+3. **Create Pull Request**
+   ```bash
+   gh pr create --title "Feature title" --body "Description"
+   ```
+
+4. **Wait for Checks** (REQUIRED before merge)
+   - [ ] GitHub Actions/checks pass
+   - [ ] Railway preview deployment succeeds (if configured)
+   - [ ] All automated tests pass
+   - [ ] Security scans complete
+
+5. **User Review and Approval**
+   - User reviews changes in PR
+   - User approves or requests changes
+
+6. **Merge PR** (only after approval + checks pass)
+   ```bash
+   gh pr merge --squash
+   ```
+
+7. **Verify Production Deployment**
+   - [ ] Railway production deployment succeeds
+   - [ ] Health check returns 200 OK: https://inbox-janitor-production-03fc.up.railway.app/health
    - [ ] No errors in Railway logs
 
-**If Railway deployment fails:**
-- Read build logs for errors (package issues, syntax errors)
-- Read runtime logs for startup errors (missing env vars, database connection)
-- Fix the issue locally, commit, and push again
-- Repeat until deployment succeeds
+**If deployment fails after merge:**
+- Create hotfix branch immediately
+- Fix issue
+- Create new PR for hotfix
+- Follow same workflow
 
 ---
 
