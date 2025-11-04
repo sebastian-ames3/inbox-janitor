@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block title %}Connection Failed - Inbox Janitor{% endblock %}
+
+{% block content %}
+<section class="py-16 sm:py-24">
+    <div class="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center mb-12">
+            <!-- Error Icon -->
+            <div class="w-20 h-20 bg-danger-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                <svg class="w-12 h-12 text-danger-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </div>
+
+            <!-- Headline -->
+            <h1 class="text-4xl font-bold text-gray-900 mb-4">
+                Gmail connection failed
+            </h1>
+
+            <!-- Error Message -->
+            <p class="text-xl text-gray-600 mb-8">
+                {{ error_message or "This usually happens if you clicked 'Deny' or the link expired." }}
+            </p>
+        </div>
+
+        <!-- Common Reasons Card -->
+        <div class="card mb-8">
+            <h2 class="text-lg font-semibold text-gray-900 mb-4">Common reasons:</h2>
+            <ul class="space-y-3 text-gray-600">
+                <li class="flex items-start space-x-2">
+                    <svg class="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                    </svg>
+                    <span>You clicked "Deny" or "Cancel" on the Google consent screen</span>
+                </li>
+                <li class="flex items-start space-x-2">
+                    <svg class="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                    </svg>
+                    <span>The authorization link expired (links are valid for 10 minutes)</span>
+                </li>
+                <li class="flex items-start space-x-2">
+                    <svg class="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                    </svg>
+                    <span>A temporary Google authentication issue occurred</span>
+                </li>
+            </ul>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="flex flex-col sm:flex-row gap-4 justify-center mb-8">
+            <a href="/auth/google/login" class="btn btn-primary text-center">
+                Try Again
+            </a>
+            <a href="/" class="btn btn-secondary text-center">
+                Back to Home
+            </a>
+        </div>
+
+        <!-- Support Section -->
+        <div class="bg-gray-50 border border-gray-200 rounded-lg p-6 text-center">
+            <h3 class="font-semibold text-gray-900 mb-2">Still having trouble?</h3>
+            <p class="text-gray-600 mb-4">
+                Our team is here to help. Send us an email and we'll get back to you within 24 hours.
+            </p>
+            <a href="mailto:hello@inboxjanitor.com" class="link text-lg">
+                hello@inboxjanitor.com
+            </a>
+        </div>
+
+        {% if reason %}
+        <!-- Technical Details (for debugging) -->
+        <details class="mt-8 text-sm text-gray-500">
+            <summary class="cursor-pointer hover:text-gray-700">Technical details</summary>
+            <pre class="mt-2 p-4 bg-gray-100 rounded overflow-x-auto">{{ reason }}</pre>
+        </details>
+        {% endif %}
+    </div>
+</section>
+{% endblock %}

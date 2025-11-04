@@ -1,0 +1,282 @@
+{% extends "base.html" %}
+
+{% block title %}Inbox Janitor - Keep Your Inbox Clean, Automatically{% endblock %}
+
+{% block description %}Privacy-first email hygiene that quietly moves promotional spam out of your way. Connect your Gmail and let Inbox Janitor keep important mail visible.{% endblock %}
+
+{% block content %}
+<!-- Hero Section -->
+<section class="bg-gradient-to-b from-white to-gray-50 py-20 sm:py-32">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center prose-readable mx-auto">
+            <!-- Headline -->
+            <h1 class="text-4xl sm:text-5xl font-bold text-gray-900 leading-tight mb-6">
+                Keep Your Inbox Clean, Automatically
+            </h1>
+
+            <!-- Subheadline -->
+            <p class="text-xl sm:text-2xl text-gray-600 leading-relaxed mb-8">
+                Inbox Janitor quietly moves promotional emails out of your way so you can focus on messages from real people.
+            </p>
+
+            <!-- Primary CTA -->
+            <div class="mb-6">
+                <a href="/auth/google/login" class="btn-cta inline-block">
+                    Connect Your Gmail
+                </a>
+            </div>
+
+            <!-- Trust Signal -->
+            <p class="text-sm text-gray-500">
+                🔒 Your emails stay private. We never read or store full email content.
+            </p>
+        </div>
+    </div>
+</section>
+
+<!-- How It Works Section -->
+<section class="py-16 sm:py-24 bg-white">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center mb-16">
+            <h2 class="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">How It Works</h2>
+            <p class="text-lg text-gray-600 max-w-2xl mx-auto">
+                Three simple steps to a cleaner inbox
+            </p>
+        </div>
+
+        <div class="grid md:grid-cols-3 gap-12">
+            <!-- Step 1 -->
+            <div class="text-center">
+                <div class="w-16 h-16 bg-primary-600 text-white rounded-full flex items-center justify-center text-2xl font-bold mx-auto mb-4">
+                    1
+                </div>
+                <h3 class="text-xl font-semibold text-gray-900 mb-3">Connect your Gmail account</h3>
+                <p class="text-gray-600 leading-relaxed">
+                    Takes 30 seconds. We use Google's official security system (OAuth). You stay in control.
+                </p>
+            </div>
+
+            <!-- Step 2 -->
+            <div class="text-center">
+                <div class="w-16 h-16 bg-primary-600 text-white rounded-full flex items-center justify-center text-2xl font-bold mx-auto mb-4">
+                    2
+                </div>
+                <h3 class="text-xl font-semibold text-gray-900 mb-3">We analyze your emails using metadata only</h3>
+                <p class="text-gray-600 leading-relaxed">
+                    We look at sender, subject, and Gmail categories — not your private messages. Your content stays yours.
+                </p>
+            </div>
+
+            <!-- Step 3 -->
+            <div class="text-center">
+                <div class="w-16 h-16 bg-primary-600 text-white rounded-full flex items-center justify-center text-2xl font-bold mx-auto mb-4">
+                    3
+                </div>
+                <h3 class="text-xl font-semibold text-gray-900 mb-3">Promotional spam gets moved out of your way</h3>
+                <p class="text-gray-600 leading-relaxed">
+                    Old Navy blasts? Gone. LinkedIn notifications? Archived. Important receipts? Kept safe.
+                </p>
+            </div>
+        </div>
+
+        <div class="text-center mt-12">
+            <p class="text-lg text-gray-700 font-medium">
+                ✓ You stay in control. Review changes weekly and undo anything.
+            </p>
+        </div>
+    </div>
+</section>
+
+<!-- Features Section -->
+<section class="py-16 sm:py-24 bg-gray-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center mb-16">
+            <h2 class="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">What You Get</h2>
+        </div>
+
+        <div class="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+            <div class="flex items-start space-x-3">
+                <svg class="w-6 h-6 text-success-600 flex-shrink-0 mt-1" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                </svg>
+                <div>
+                    <h3 class="font-semibold text-gray-900 mb-1">Automatic cleanup of promotional emails</h3>
+                    <p class="text-gray-600">Marketing blasts and social notifications moved out of your inbox</p>
+                </div>
+            </div>
+
+            <div class="flex items-start space-x-3">
+                <svg class="w-6 h-6 text-success-600 flex-shrink-0 mt-1" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                </svg>
+                <div>
+                    <h3 class="font-semibold text-gray-900 mb-1">Keeps receipts, bills, and important mail safe</h3>
+                    <p class="text-gray-600">Invoices, confirmations, and financial emails always preserved</p>
+                </div>
+            </div>
+
+            <div class="flex items-start space-x-3">
+                <svg class="w-6 h-6 text-success-600 flex-shrink-0 mt-1" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                </svg>
+                <div>
+                    <h3 class="font-semibold text-gray-900 mb-1">Weekly digest shows you what happened</h3>
+                    <p class="text-gray-600">Simple email every Sunday with a summary and quick undo links</p>
+                </div>
+            </div>
+
+            <div class="flex items-start space-x-3">
+                <svg class="w-6 h-6 text-success-600 flex-shrink-0 mt-1" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                </svg>
+                <div>
+                    <h3 class="font-semibold text-gray-900 mb-1">Easy undo if we make a mistake</h3>
+                    <p class="text-gray-600">30-day undo on everything. We never permanently delete.</p>
+                </div>
+            </div>
+
+            <div class="flex items-start space-x-3">
+                <svg class="w-6 h-6 text-success-600 flex-shrink-0 mt-1" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                </svg>
+                <div>
+                    <h3 class="font-semibold text-gray-900 mb-1">Works with Gmail</h3>
+                    <p class="text-gray-600">Microsoft 365 support coming soon</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Pricing Section -->
+<section class="py-16 sm:py-24 bg-white">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center mb-12">
+            <h2 class="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">Simple Pricing</h2>
+            <div class="inline-block bg-primary-100 text-primary-800 px-4 py-2 rounded-full text-sm font-medium mb-6">
+                Currently in beta. Free for our first 10 users.
+            </div>
+        </div>
+
+        <div class="max-w-md mx-auto">
+            <div class="card border-2 border-primary-600">
+                <div class="text-center">
+                    <h3 class="text-2xl font-bold text-gray-900 mb-2">Starter Plan</h3>
+                    <div class="flex items-baseline justify-center mb-6">
+                        <span class="text-5xl font-bold text-gray-900">$6</span>
+                        <span class="text-xl text-gray-600 ml-2">/month</span>
+                    </div>
+
+                    <ul class="text-left space-y-3 mb-8">
+                        <li class="flex items-start space-x-2">
+                            <svg class="w-5 h-5 text-success-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                            </svg>
+                            <span class="text-gray-700">1 Gmail account</span>
+                        </li>
+                        <li class="flex items-start space-x-2">
+                            <svg class="w-5 h-5 text-success-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                            </svg>
+                            <span class="text-gray-700">Unlimited emails processed</span>
+                        </li>
+                        <li class="flex items-start space-x-2">
+                            <svg class="w-5 h-5 text-success-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                            </svg>
+                            <span class="text-gray-700">30-day action history</span>
+                        </li>
+                        <li class="flex items-start space-x-2">
+                            <svg class="w-5 h-5 text-success-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                            </svg>
+                            <span class="text-gray-700">Email support</span>
+                        </li>
+                    </ul>
+
+                    <p class="text-sm text-gray-600 mb-6">
+                        No credit card required during beta
+                    </p>
+
+                    <a href="/auth/google/login" class="btn btn-primary w-full text-center block">
+                        Get Started Free
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- FAQ Section -->
+<section class="py-16 sm:py-24 bg-gray-50">
+    <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center mb-16">
+            <h2 class="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">Frequently Asked Questions</h2>
+        </div>
+
+        <div class="space-y-8">
+            <!-- FAQ 1 -->
+            <div class="card">
+                <h3 class="text-lg font-semibold text-gray-900 mb-2">Is this safe?</h3>
+                <p class="text-gray-600 leading-relaxed">
+                    Yes. We use Google's official security system (OAuth). We can only see email headers (sender, subject, date), not the full content of your messages. We never store or read your private emails.
+                </p>
+            </div>
+
+            <!-- FAQ 2 -->
+            <div class="card">
+                <h3 class="text-lg font-semibold text-gray-900 mb-2">What if you delete something important?</h3>
+                <p class="text-gray-600 leading-relaxed">
+                    We never permanently delete anything. Emails go to your Gmail trash (30-day recovery) or archive (always accessible). You can undo any action for 30 days. Plus, we never touch starred emails or messages from your contacts.
+                </p>
+            </div>
+
+            <!-- FAQ 3 -->
+            <div class="card">
+                <h3 class="text-lg font-semibold text-gray-900 mb-2">How is this different from Gmail's filters?</h3>
+                <p class="text-gray-600 leading-relaxed">
+                    Gmail filters require manual setup for each sender. Inbox Janitor automatically learns what's promotional and what's personal, so you don't have to create dozens of rules. We also handle your backlog — cleaning up years of accumulated spam.
+                </p>
+            </div>
+
+            <!-- FAQ 4 -->
+            <div class="card">
+                <h3 class="text-lg font-semibold text-gray-900 mb-2">Can I stop using it anytime?</h3>
+                <p class="text-gray-600 leading-relaxed">
+                    Yes. Disconnect your account anytime from the settings page. All emails stay in your Gmail exactly where they are. No data is lost.
+                </p>
+            </div>
+
+            <!-- FAQ 5 -->
+            <div class="card">
+                <h3 class="text-lg font-semibold text-gray-900 mb-2">What happens to my data if I cancel?</h3>
+                <p class="text-gray-600 leading-relaxed">
+                    We delete all your data within 7 days of disconnecting. Your emails stay in Gmail — we only delete our internal logs and classification data.
+                </p>
+            </div>
+        </div>
+
+        <div class="text-center mt-12">
+            <p class="text-gray-600 mb-4">Still have questions?</p>
+            <a href="mailto:hello@inboxjanitor.com" class="link text-lg">
+                Email us at hello@inboxjanitor.com
+            </a>
+        </div>
+    </div>
+</section>
+
+<!-- Final CTA Section -->
+<section class="py-16 sm:py-24 bg-primary-600">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+        <h2 class="text-3xl sm:text-4xl font-bold text-white mb-6">
+            Ready for a cleaner inbox?
+        </h2>
+        <p class="text-xl text-primary-100 mb-8 leading-relaxed">
+            Join our beta and get free access. No credit card required.
+        </p>
+        <a href="/auth/google/login" class="btn bg-white text-primary-600 hover:bg-gray-100 text-lg px-8 py-4 inline-block">
+            Connect Your Gmail
+        </a>
+    </div>
+</section>
+{% endblock %}

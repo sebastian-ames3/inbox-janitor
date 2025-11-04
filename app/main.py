@@ -19,6 +19,7 @@ from app.core.middleware import (
     add_security_headers,
 )
 from app.modules.auth.routes import router as auth_router
+from app.modules.portal.routes import router as portal_router
 from app.api.webhooks import router as webhook_router
 
 
@@ -94,23 +95,12 @@ templates = Jinja2Templates(directory="app/templates")
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 # Mount routers
+app.include_router(portal_router)  # No prefix - serves landing page at /
 app.include_router(auth_router)
 app.include_router(webhook_router, prefix="/webhooks", tags=["webhooks"])
 
 # TODO: Add remaining routers as they're implemented
 # app.include_router(classifier_router, prefix="/classify", tags=["classifier"])
-
-
-@app.get("/")
-async def root():
-    """Root endpoint - API information."""
-    return {
-        "service": settings.APP_NAME,
-        "version": "0.1.0",
-        "status": "running",
-        "environment": settings.ENVIRONMENT,
-        "docs": "/docs" if settings.DEBUG else "disabled",
-    }
 
 
 @app.get("/health")
