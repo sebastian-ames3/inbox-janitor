@@ -1,8 +1,44 @@
 # Inbox Janitor - Development Context
 
-**Last Updated:** 2025-10-25
-**Status:** Pre-MVP Development
-**Current Phase:** Week 1 - Foundation & Railway Deployment
+**Last Updated:** 2025-11-04
+**Status:** Pre-MVP Development - OAuth Complete
+**Current Phase:** Week 1 - Building Core Features (Backlog Cleanup, Classification)
+
+---
+
+## ⚡ START HERE - Required Workflows ⚡
+
+**BEFORE starting ANY new feature or fix, follow these workflows:**
+
+### ✅ For Complex Features (>50 lines, multiple files, Week 1-6 roadmap items):
+1. **Create PRD first** - Use `@ai-dev-tasks/create-prd.md` skill
+2. **Generate task list** - Use `@ai-dev-tasks/generate-tasks.md` skill
+3. **Execute step-by-step** - Complete each task, get user review before next
+4. **Save to `/tasks/`** - All PRDs and task lists go here
+
+### ✅ For ALL Code Changes (features, fixes, updates):
+1. **Create feature branch** - `git checkout -b feature/description` or `fix/description`
+2. **Make changes and commit** - Follow security-first.md and relevant skills
+3. **Push branch** - `git push -u origin feature/description`
+4. **Create PR** - `gh pr create --title "..." --body "..."`
+5. **WAIT for Railway deployment** - Check health endpoint after merge
+6. **NEVER push directly to main** - PR-only workflow, no exceptions
+
+### ✅ For Debugging/Testing:
+1. **Check Railway logs first** - Don't guess, read actual errors
+2. **Verify environment variables** - Missing vars = crashes
+3. **Test health endpoint** - After every deployment
+4. **Check database migrations** - `alembic current` shows applied migrations
+
+### ✅ Reference Skills When:
+- **Building auth/OAuth** → `security-first.md` (token encryption, no secrets in logs)
+- **Creating modules** → `fastapi-module-builder.md` (structure, async patterns)
+- **Adding classification** → `email-classification.md` (3-tier system, safety rails)
+- **Deploying changes** → `railway-deployment.md` (env vars, debugging)
+- **Writing tests** → `testing-requirements.md` (security/safety tests required)
+- **Making commits** → `git-workflow.md` (PR workflow, Railway verification)
+
+**See CHANGELOG.md for recent updates and current status.**
 
 ---
 
