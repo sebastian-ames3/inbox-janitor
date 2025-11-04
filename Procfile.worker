@@ -1,0 +1,4 @@
+# Railway Worker Service Procfile
+# This runs the Celery worker + beat scheduler for background tasks
+
+worker: celery -A app.core.celery_app worker --loglevel=info --beat --scheduler=celery.beat:PersistentScheduler --max-tasks-per-child=1000
