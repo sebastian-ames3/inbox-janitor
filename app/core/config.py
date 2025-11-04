@@ -47,6 +47,7 @@ class Settings(BaseSettings):
     # Postmark Email
     POSTMARK_API_KEY: str
     POSTMARK_FROM_EMAIL: str = "noreply@inboxjanitor.com"
+    FROM_EMAIL: Optional[str] = None  # Alias for POSTMARK_FROM_EMAIL (used by email_service)
 
     # Redis
     REDIS_URL: str = "redis://localhost:6379/0"
@@ -84,6 +85,9 @@ class Settings(BaseSettings):
         # Set Google redirect URI if not set
         if not self.GOOGLE_REDIRECT_URI:
             self.GOOGLE_REDIRECT_URI = f"{self.APP_URL}/auth/google/callback"
+        # Set FROM_EMAIL if not explicitly set
+        if not self.FROM_EMAIL:
+            self.FROM_EMAIL = self.POSTMARK_FROM_EMAIL
 
     @property
     def is_production(self) -> bool:

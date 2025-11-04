@@ -201,6 +201,21 @@ async def google_oauth_callback(
         regenerate_session(request)
         set_session_user_id(request, user.id)
 
+        # Send welcome email
+        try:
+            from app.modules.digest.email_service import send_welcome_email
+            from app.core.config import settings
+
+            await send_welcome_email(
+                user_email=user.email,
+                connected_email=mailbox.email_address,
+                dashboard_link=f"{settings.APP_URL}/dashboard",
+                audit_link=f"{settings.APP_URL}/audit"
+            )
+        except Exception as email_error:
+            # Don't fail OAuth if email fails - just log it
+            print(f"Failed to send welcome email: {str(email_error)}")
+
         # Redirect to welcome page
         return RedirectResponse(url="/welcome", status_code=302)
 
