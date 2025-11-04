@@ -27,7 +27,8 @@ class Settings(BaseSettings):
     DATABASE_URL: str
 
     # Security & Encryption
-    SECRET_KEY: str  # For JWT signing
+    SECRET_KEY: str  # For JWT signing and CSRF protection
+    SESSION_SECRET_KEY: str  # For session cookie encryption (separate from JWT)
     ENCRYPTION_KEY: str  # For Fernet token encryption (44-char base64)
 
     # OAuth - Google
