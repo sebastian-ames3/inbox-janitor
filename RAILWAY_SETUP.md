@@ -11,6 +11,7 @@ This guide walks through deploying Inbox Janitor to Railway with proper environm
 
 - ✅ Database migrations now run automatically on deploy (via Procfile)
 - ✅ Initial schema migration created (`001_initial_week1_schema.py`)
+- ✅ Column rename migration added (`002_rename_metadata_column.py`) - fixes SQLAlchemy reserved name conflict
 - ✅ `.env.example` template added for reference
 - ✅ Health check endpoint available at `/health`
 
@@ -191,6 +192,7 @@ Before deploying, verify you have these in Railway Variables:
    - Watch for migration success:
      ```
      INFO  [alembic.runtime.migration] Running upgrade  -> 001, Initial Week 1 schema
+     INFO  [alembic.runtime.migration] Running upgrade 001 -> 002, rename_metadata_to_classification_metadata
      ```
    - Watch for startup message:
      ```

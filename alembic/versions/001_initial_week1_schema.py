@@ -66,7 +66,7 @@ def upgrade() -> None:
         sa.Column('action', sa.String(), nullable=False),
         sa.Column('reason', sa.Text(), nullable=True),
         sa.Column('confidence', sa.Float(), nullable=True),
-        sa.Column('metadata', postgresql.JSONB(astext_type=sa.Text()), nullable=True),
+        sa.Column('classification_metadata', postgresql.JSONB(astext_type=sa.Text()), nullable=True),
         sa.Column('created_at', sa.DateTime(), nullable=False),
         sa.Column('undone_at', sa.DateTime(), nullable=True),
         sa.Column('can_undo_until', sa.DateTime(), nullable=True),
