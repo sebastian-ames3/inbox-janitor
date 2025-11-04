@@ -90,6 +90,14 @@ class Settings(BaseSettings):
         return self.ENVIRONMENT.lower() == "production"
 
     @property
+    def database_url_async(self) -> str:
+        """Get async database URL (for asyncpg driver)."""
+        # Railway provides postgresql://, convert to postgresql+asyncpg://
+        if self.DATABASE_URL.startswith("postgresql://"):
+            return self.DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
+        return self.DATABASE_URL
+
+    @property
     def database_url_sync(self) -> str:
         """Get synchronous database URL (for Alembic migrations)."""
         return self.DATABASE_URL.replace("postgresql+asyncpg://", "postgresql://")
