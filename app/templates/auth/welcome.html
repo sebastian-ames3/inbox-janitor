@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+
+{% block title %}Welcome to Inbox Janitor!{% endblock %}
+
+{% block content %}
+<section class="py-16 sm:py-24">
+    <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center mb-12">
+            <!-- Success Icon -->
+            <div class="w-20 h-20 bg-success-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                <svg class="w-12 h-12 text-success-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                </svg>
+            </div>
+
+            <!-- Headline -->
+            <h1 class="text-4xl font-bold text-gray-900 mb-4">
+                You're all set! 🎉
+            </h1>
+
+            <!-- Connected Email -->
+            <p class="text-xl text-gray-600 mb-8">
+                Your Gmail account <span class="font-semibold text-gray-900">{{ user.email }}</span> is now connected.
+            </p>
+        </div>
+
+        <!-- What Happens Next Section -->
+        <div class="card mb-8">
+            <h2 class="text-2xl font-bold text-gray-900 mb-6">Here's what happens next:</h2>
+
+            <div class="space-y-4">
+                <div class="flex items-start space-x-3">
+                    <div class="w-8 h-8 bg-primary-600 text-white rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+                        <span class="text-sm font-bold">1</span>
+                    </div>
+                    <div>
+                        <h3 class="font-semibold text-gray-900 mb-1">We're analyzing your inbox now</h3>
+                        <p class="text-gray-600">This takes a few minutes for large inboxes. You'll see results in your weekly digest.</p>
+                    </div>
+                </div>
+
+                <div class="flex items-start space-x-3">
+                    <div class="w-8 h-8 bg-primary-600 text-white rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+                        <span class="text-sm font-bold">2</span>
+                    </div>
+                    <div>
+                        <h3 class="font-semibold text-gray-900 mb-1">You'll get a welcome email shortly</h3>
+                        <p class="text-gray-600">Check your inbox for a message from us with next steps.</p>
+                    </div>
+                </div>
+
+                <div class="flex items-start space-x-3">
+                    <div class="w-8 h-8 bg-primary-600 text-white rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+                        <span class="text-sm font-bold">3</span>
+                    </div>
+                    <div>
+                        <h3 class="font-semibold text-gray-900 mb-1">For now, we're in sandbox mode</h3>
+                        <p class="text-gray-600">No emails will be moved until you're ready. We're just logging what we <em>would</em> do.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sandbox Mode Warning -->
+        <div class="bg-warning-50 border border-warning-200 rounded-lg p-6 mb-8">
+            <div class="flex items-start space-x-3">
+                <svg class="w-6 h-6 text-warning-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                </svg>
+                <div>
+                    <h3 class="font-semibold text-warning-900 mb-1">⚠️ Sandbox mode is active</h3>
+                    <p class="text-warning-800">
+                        No emails will be moved until you enable "Action Mode" in your settings.
+                        This lets you review our decisions safely.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Call to Action Buttons -->
+        <div class="flex flex-col sm:flex-row gap-4 justify-center">
+            <a href="/dashboard" class="btn btn-primary text-center">
+                Go to Settings
+            </a>
+            <a href="/audit" class="btn btn-secondary text-center">
+                View Activity Log
+            </a>
+        </div>
+
+        <!-- Help Text -->
+        <div class="text-center mt-8 text-sm text-gray-600">
+            <p>
+                Need help? Email us at
+                <a href="mailto:hello@inboxjanitor.com" class="link">hello@inboxjanitor.com</a>
+            </p>
+        </div>
+    </div>
+</section>
+{% endblock %}

@@ -7,7 +7,7 @@ Endpoints:
 - POST /auth/disconnect - Disconnect mailbox
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -16,10 +16,31 @@ from datetime import datetime, timedelta
 from app.core.database import get_db
 from app.core.config import settings
 from app.core.security import encrypt_token
+from app.core.session import regenerate_session, set_session_user_id, clear_session
 from app.models import User, Mailbox, UserSettings
 from app.modules.auth.gmail_oauth import gmail_oauth
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
+
+
+@router.get("/google/login")
+async def login_with_google(
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Initiate Gmail OAuth flow (user-facing login).
+
+    This is the main entry point for users clicking "Connect Gmail" button.
+    Redirects to Google consent screen.
+
+    NOTE: This differs from /auth/connect which requires user_email param.
+    Here, we get the email from OAuth callback after user authenticates.
+    """
+    # Generate OAuth URL without user_id (we'll get user from callback)
+    auth_url, state = await gmail_oauth.get_authorization_url(user_id=None)
+
+    # Redirect to Google OAuth
+    return RedirectResponse(url=auth_url)
 
 
 @router.get("/connect")
@@ -63,8 +84,20 @@ async def connect_gmail(
     return RedirectResponse(url=auth_url)
 
 
+@router.get("/logout")
+async def logout(request: Request):
+    """
+    Log out the current user.
+
+    Clears the session and redirects to landing page.
+    """
+    clear_session(request)
+    return RedirectResponse(url="/", status_code=302)
+
+
 @router.get("/google/callback")
 async def google_oauth_callback(
+    request: Request,
     code: str = Query(..., description="Authorization code"),
     state: str = Query(..., description="CSRF state token"),
     db: AsyncSession = Depends(get_db),
@@ -88,20 +121,41 @@ async def google_oauth_callback(
     """
     # Verify state token
     user_id = await gmail_oauth.verify_state(state)
-    if not user_id:
-        raise HTTPException(status_code=400, detail="Invalid or expired state token")
+    if user_id is None:
+        # State is invalid (not just missing user_id)
+        return RedirectResponse(url="/auth/error?error_message=Invalid or expired authorization link", status_code=302)
 
     try:
         # Exchange code for tokens
         tokens = gmail_oauth.exchange_code_for_tokens(code)
 
-        # Get user
-        result = await db.execute(
-            select(User).where(User.id == user_id)
-        )
-        user = result.scalar_one_or_none()
-        if not user:
-            raise HTTPException(status_code=404, detail="User not found")
+        # Get or create user
+        if user_id:
+            # User ID was passed in state (old flow from /auth/connect)
+            result = await db.execute(
+                select(User).where(User.id == user_id)
+            )
+            user = result.scalar_one_or_none()
+            if not user:
+                return RedirectResponse(url="/auth/error?error_message=User not found", status_code=302)
+        else:
+            # No user ID in state (new flow from /auth/google/login)
+            # Create or get user by email from OAuth response
+            result = await db.execute(
+                select(User).where(User.email == tokens["email"])
+            )
+            user = result.scalar_one_or_none()
+
+            if not user:
+                # Create new user
+                user = User(email=tokens["email"])
+                db.add(user)
+                await db.flush()
+
+                # Create default settings
+                user_settings = UserSettings(user_id=user.id)
+                db.add(user_settings)
+                await db.flush()
 
         # Check if mailbox already exists
         result = await db.execute(
@@ -143,17 +197,19 @@ async def google_oauth_callback(
         # from app.modules.ingest.gmail_watch import setup_gmail_watch
         # await setup_gmail_watch(mailbox.id)
 
-        # Redirect to success page
-        return RedirectResponse(
-            url=f"{settings.APP_URL}/success?email={tokens['email']}"
-        )
+        # Create session for the user (prevents session fixation)
+        regenerate_session(request)
+        set_session_user_id(request, user.id)
+
+        # Redirect to welcome page
+        return RedirectResponse(url="/welcome", status_code=302)
 
     except Exception as e:
         # Log error (but NOT the tokens!)
         print(f"OAuth callback error: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail="Failed to complete OAuth flow. Please try again.",
+        return RedirectResponse(
+            url=f"/auth/error?error_message=Failed to complete Gmail connection. Please try again.&reason={str(e)[:100]}",
+            status_code=302
         )
 
 
