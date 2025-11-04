@@ -11,6 +11,7 @@ from contextlib import asynccontextmanager
 from app.core.config import settings
 from app.core.database import init_db, close_db
 from app.modules.auth.routes import router as auth_router
+from app.api.webhooks import router as webhook_router
 
 
 @asynccontextmanager
@@ -56,9 +57,9 @@ app.add_middleware(
 
 # Mount routers
 app.include_router(auth_router)
+app.include_router(webhook_router, prefix="/webhooks", tags=["webhooks"])
 
 # TODO: Add remaining routers as they're implemented
-# app.include_router(ingest_router, prefix="/webhooks", tags=["webhooks"])
 # app.include_router(classifier_router, prefix="/classify", tags=["classifier"])
 
 
