@@ -16,7 +16,7 @@ Base = declarative_base()
 
 # Async engine for main app (asyncpg)
 async_engine = create_async_engine(
-    settings.DATABASE_URL,
+    settings.database_url_async,
     echo=settings.DEBUG,
     pool_pre_ping=True,
     pool_size=10,
