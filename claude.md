@@ -6,6 +6,62 @@
 
 ---
 
+## AI Dev Workflow Commands
+
+When building new features, use this 3-step structured workflow for better control and reviewable progress:
+
+### Step 1: Create PRD
+```
+I want to build [feature name].
+Use @ai-dev-tasks/create-prd.md to create a PRD.
+
+[Describe your feature here - be specific about problem, users, functionality]
+
+Reference @CLAUDE.md for architecture context.
+```
+
+### Step 2: Generate Tasks
+```
+Take @tasks/[your-prd-file].md and create tasks using @ai-dev-tasks/generate-tasks.md
+```
+
+### Step 3: Execute Tasks (One at a Time)
+```
+Start on task 1.1 from the generated task list and work through it step-by-step.
+After I review each sub-task, I'll say "yes" to continue or provide feedback.
+```
+
+**All PRDs and task lists save to `/tasks` directory.**
+
+**When to use:** Complex features (>50 lines), multiple files, Week 1-6 roadmap items
+**When NOT to use:** Bug fixes, single-line changes, documentation updates
+
+---
+
+## Claude Skills Reference
+
+This project uses Claude Skills in `/skills/` for consistent development patterns.
+
+**Core Skills:**
+- **security-first.md** ⭐ CRITICAL - OAuth token encryption, no email body storage, no permanent deletion
+- **fastapi-module-builder.md** - Modular monolith structure, database patterns, async sessions
+- **email-classification.md** - 3-tier classification system, safety rails, exception keywords
+
+**Workflow Skills:**
+- **railway-deployment.md** - Environment variables, deployment verification, debugging failed deploys
+- **testing-requirements.md** - Security tests (run before every commit), safety tests, coverage requirements
+- **git-workflow.md** - Commit patterns, Railway verification, pull request workflow
+- **ai-dev-workflow.md** - PRD → Tasks → Execute workflow for complex features
+
+**How Skills Work:**
+- Auto-triggered when relevant (creating modules → fastapi-module-builder.md)
+- Explicitly invoke: "Using the security-first skill, add OAuth endpoint"
+- Cross-referenced: Skills link to each other for related patterns
+
+**See `/skills/README.md` for complete documentation.**
+
+---
+
 ## Project Vision
 
 **Headless email hygiene SaaS** that keeps important mail visible while automatically cleaning promotional spam. Privacy-first, email-only UX, reversible by design.
@@ -660,35 +716,13 @@ def health():
 
 ---
 
-## Migration from Google Apps Script
+## Migration Status
 
-### Current State
-- `scripts/InboxJanitor.gs`: Processes inbox, calls classifier API
-- `API/main.py`: FastAPI classifier (GPT-4o-mini)
-- Deployed on Railway: https://inbox-janitor-production.up.railway.app
+**Legacy System:**
+- `scripts/InboxJanitor.gs` - Google Apps Script (deprecated)
+- `API/main.py` - FastAPI classifier (to migrate to app/modules/classifier/)
 
-### Migration Path
-
-**Week 1:**
-- Keep Apps Script running (don't break existing setup)
-- Build OAuth flow in new FastAPI app
-- Set up database schema
-- Test OAuth with personal Gmail
-
-**Week 2:**
-- Build webhook receiver
-- Migrate classifier logic from `API/main.py` to `app/modules/classifier/`
-- Run in parallel: Apps Script + new app (both log, neither acts)
-
-**Week 3:**
-- Test on personal Gmail (disable Apps Script trigger, enable new app)
-- Monitor for 7 days
-- If successful, migrate mom/sister
-
-**Week 4+:**
-- Full cutover
-- Deprecate Apps Script
-- Focus on new features (backlog cleanup, etc.)
+**Migration:** Week 1-2 foundation complete. Week 3+ execute full cutover.
 
 ---
 
@@ -716,17 +750,4 @@ def health():
 
 ---
 
-## Context for Future Sessions
-
-**When starting a new session, reference this file for:**
-- Architecture decisions and rationale
-- Security requirements (never compromise)
-- Tech stack choices (don't second-guess, move forward)
-- Testing requirements (run before every commit)
-- Roadmap priorities (focus on MVP first)
-
-**Always check CHANGELOG.md for recent changes.**
-
-**Current blockers:** None (ready to start Week 1 development)
-
-**Next immediate task:** Set up FastAPI project structure with OAuth modules
+**For current project status, blockers, and next priorities, see CHANGELOG.md "Current Status" section.**

@@ -24,3 +24,6 @@ Thumbs.db
 .coverage
 htmlcov/
 .pytest_cache/
+
+# External repositories (cloned for reference)
+ai-dev-tasks/
