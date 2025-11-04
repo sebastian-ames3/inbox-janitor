@@ -89,6 +89,26 @@ async def health_check():
     }
 
 
+@app.get("/success")
+async def oauth_success(email: str):
+    """
+    OAuth success page - shown after successful Gmail connection.
+
+    Query Params:
+        email: Connected Gmail address
+    """
+    return {
+        "status": "success",
+        "message": "Gmail account connected successfully!",
+        "email": email,
+        "next_steps": [
+            "Your account is now connected",
+            "We'll send you a welcome email soon",
+            "Check your inbox for your weekly digest",
+        ],
+    }
+
+
 if __name__ == "__main__":
     import uvicorn
 
