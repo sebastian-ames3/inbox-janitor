@@ -1,0 +1,288 @@
+{% extends "base.html" %}
+
+{% block title %}Account - Inbox Janitor{% endblock %}
+
+{% block content %}
+<section class="py-8 sm:py-12">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        <!-- Page Header -->
+        <div class="mb-8">
+            <h1 class="text-3xl font-bold text-gray-900 mb-2">Account</h1>
+            <p class="text-gray-600">Manage your account and subscription</p>
+        </div>
+
+        <!-- Account Information Section -->
+        <div class="card mb-8">
+            <h2 class="text-lg font-semibold text-gray-900 mb-4">Account Information</h2>
+            <div class="space-y-3">
+                <div class="flex justify-between items-center py-2 border-b border-gray-200">
+                    <span class="text-sm font-medium text-gray-700">Email</span>
+                    <span class="text-sm text-gray-900">{{ user.email }}</span>
+                </div>
+                <div class="flex justify-between items-center py-2 border-b border-gray-200">
+                    <span class="text-sm font-medium text-gray-700">Account Created</span>
+                    <span class="text-sm text-gray-900">{{ user.created_at.strftime('%B %d, %Y') }}</span>
+                </div>
+                <div class="flex justify-between items-center py-2">
+                    <span class="text-sm font-medium text-gray-700">Status</span>
+                    <span class="badge badge-success">Active</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Connected Mailboxes Section -->
+        <div class="card mb-8">
+            <h2 class="text-lg font-semibold text-gray-900 mb-4">Connected Mailboxes</h2>
+            {% if mailboxes %}
+                <div class="space-y-3">
+                    {% for mailbox in mailboxes %}
+                    <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-10 h-10 bg-{% if mailbox.is_active %}success{% else %}gray{% endif %}-100 rounded-full flex items-center justify-center">
+                                <svg class="w-6 h-6 text-{% if mailbox.is_active %}success{% else %}gray{% endif %}-600" fill="currentColor" viewBox="0 0 20 20">
+                                    <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z"/>
+                                    <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <p class="font-medium text-gray-900">{{ mailbox.email_address }}</p>
+                                <p class="text-xs text-gray-500">{{ mailbox.provider|title }} • Connected {{ mailbox.created_at.strftime('%b %d, %Y') }}</p>
+                            </div>
+                        </div>
+                        {% if mailbox.is_active %}
+                        <button
+                            onclick="if(confirm('Are you sure? This will stop email processing and remove access. You can reconnect anytime.')) { disconnectMailbox('{{ mailbox.id }}'); }"
+                            class="btn btn-secondary text-sm"
+                        >
+                            Disconnect
+                        </button>
+                        {% else %}
+                        <span class="text-sm text-gray-500">Disconnected</span>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="text-gray-600 text-sm">No mailboxes connected.</p>
+                <a href="/auth/google/login" class="btn btn-primary mt-3">Connect Gmail</a>
+            {% endif %}
+        </div>
+
+        <!-- Billing Section (Placeholder) -->
+        <div class="card mb-8">
+            <h2 class="text-lg font-semibold text-gray-900 mb-4">Subscription & Billing</h2>
+            <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                <p class="text-sm text-gray-700 mb-3">
+                    <strong>Current Plan:</strong> Beta (Free)
+                </p>
+                <p class="text-sm text-gray-600 mb-4">
+                    You're part of our early beta program. Billing will be enabled after the MVP launch (Week 6).
+                </p>
+                <div class="text-sm text-gray-500">
+                    <p>Planned Pricing:</p>
+                    <ul class="list-disc list-inside mt-1 space-y-1">
+                        <li>Starter: $6/month (1 account)</li>
+                        <li>Pro: $12/month (2 accounts)</li>
+                        <li>Team: $20/user/month (unlimited)</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Data Export Section -->
+        <div class="card mb-8">
+            <h2 class="text-lg font-semibold text-gray-900 mb-4">Data Export</h2>
+            <p class="text-gray-600 text-sm mb-4">
+                Download all your data including action history, settings, and audit logs.
+            </p>
+            <button
+                onclick="exportData()"
+                class="btn btn-secondary"
+                id="export-button"
+            >
+                Export All Data (JSON)
+            </button>
+            <p class="text-xs text-gray-500 mt-2">
+                Export includes: email actions, settings, sender stats, and audit logs from the last 30 days.
+            </p>
+        </div>
+
+        <!-- Danger Zone -->
+        <div class="card border-danger-200 bg-danger-50">
+            <h2 class="text-lg font-semibold text-danger-900 mb-4">Danger Zone</h2>
+
+            <div class="space-y-4">
+                <!-- Pause Account -->
+                <div class="bg-white rounded-lg p-4 border border-danger-200">
+                    <h3 class="font-medium text-gray-900 mb-2">Pause Email Processing</h3>
+                    <p class="text-sm text-gray-600 mb-3">
+                        Temporarily stop all email processing without disconnecting your account. You can resume anytime.
+                    </p>
+                    <button
+                        onclick="pauseAccount()"
+                        class="btn btn-secondary text-sm"
+                    >
+                        Pause Processing
+                    </button>
+                </div>
+
+                <!-- Delete Account -->
+                <div class="bg-white rounded-lg p-4 border border-danger-300">
+                    <h3 class="font-medium text-danger-900 mb-2">Delete Account</h3>
+                    <p class="text-sm text-gray-600 mb-3">
+                        Permanently delete your account and all associated data. This action cannot be undone.
+                    </p>
+                    <ul class="text-xs text-gray-600 mb-3 space-y-1 list-disc list-inside">
+                        <li>All OAuth tokens will be revoked</li>
+                        <li>Email processing will stop immediately</li>
+                        <li>Action history will be deleted after 7 days</li>
+                        <li>You can reconnect with the same email later</li>
+                    </ul>
+                    <button
+                        onclick="deleteAccount()"
+                        class="btn bg-danger-600 hover:bg-danger-700 text-white text-sm"
+                    >
+                        Delete Account
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Toast Container -->
+<div id="toast-container" class="fixed bottom-4 right-4 z-50"></div>
+
+<script>
+    // Disconnect mailbox
+    async function disconnectMailbox(mailboxId) {
+        const csrfToken = document.cookie.split('csrf_token=')[1]?.split(';')[0];
+
+        try {
+            const response = await fetch(`/auth/disconnect/${mailboxId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': csrfToken
+                }
+            });
+
+            if (response.ok) {
+                window.showToast('Mailbox disconnected successfully', 'success');
+                setTimeout(() => window.location.reload(), 1500);
+            } else {
+                const data = await response.json();
+                window.showToast(data.detail || 'Failed to disconnect mailbox', 'error');
+            }
+        } catch (error) {
+            window.showToast('Network error. Please try again.', 'error');
+        }
+    }
+
+    // Export data
+    async function exportData() {
+        const button = document.getElementById('export-button');
+        button.disabled = true;
+        button.textContent = 'Exporting...';
+
+        try {
+            const response = await fetch('/api/account/export', {
+                method: 'GET'
+            });
+
+            if (response.ok) {
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `inbox-janitor-export-${new Date().toISOString().split('T')[0]}.json`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+
+                window.showToast('Data exported successfully', 'success');
+            } else {
+                window.showToast('Failed to export data', 'error');
+            }
+        } catch (error) {
+            window.showToast('Network error. Please try again.', 'error');
+        } finally {
+            button.disabled = false;
+            button.textContent = 'Export All Data (JSON)';
+        }
+    }
+
+    // Pause account
+    async function pauseAccount() {
+        const confirmed = confirm(
+            'Are you sure you want to pause email processing?\n\n' +
+            'This will stop all automatic actions until you resume. ' +
+            'You can reactivate anytime from this page.'
+        );
+
+        if (!confirmed) return;
+
+        const csrfToken = document.cookie.split('csrf_token=')[1]?.split(';')[0];
+
+        try {
+            const response = await fetch('/api/account/pause', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': csrfToken
+                }
+            });
+
+            if (response.ok) {
+                window.showToast('Account paused successfully', 'success');
+                setTimeout(() => window.location.reload(), 1500);
+            } else {
+                const data = await response.json();
+                window.showToast(data.detail || 'Failed to pause account', 'error');
+            }
+        } catch (error) {
+            window.showToast('Network error. Please try again.', 'error');
+        }
+    }
+
+    // Delete account
+    async function deleteAccount() {
+        const confirmed = confirm(
+            '⚠️ PERMANENT DELETION WARNING ⚠️\n\n' +
+            'This will permanently delete your account and all data.\n\n' +
+            'Type "DELETE" in the next prompt to confirm.'
+        );
+
+        if (!confirmed) return;
+
+        const verification = prompt('Type DELETE to confirm account deletion:');
+        if (verification !== 'DELETE') {
+            window.showToast('Account deletion cancelled', 'info');
+            return;
+        }
+
+        const csrfToken = document.cookie.split('csrf_token=')[1]?.split(';')[0];
+
+        try {
+            const response = await fetch('/api/account/delete', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': csrfToken
+                }
+            });
+
+            if (response.ok) {
+                window.showToast('Account deleted. Redirecting...', 'success');
+                setTimeout(() => window.location.href = '/', 2000);
+            } else {
+                const data = await response.json();
+                window.showToast(data.detail || 'Failed to delete account', 'error');
+            }
+        } catch (error) {
+            window.showToast('Network error. Please try again.', 'error');
+        }
+    }
+</script>
+{% endblock %}

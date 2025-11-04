@@ -1,0 +1,304 @@
+{% extends "base.html" %}
+
+{% block title %}Settings - Inbox Janitor{% endblock %}
+
+{% block content %}
+<section class="py-8 sm:py-12">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        <!-- Page Header -->
+        <div class="mb-8">
+            <h1 class="text-3xl font-bold text-gray-900 mb-2">Settings</h1>
+            <p class="text-gray-600">Configure how Inbox Janitor handles your emails</p>
+        </div>
+
+        <!-- Connected Account Section -->
+        <div class="card mb-8">
+            <h2 class="text-lg font-semibold text-gray-900 mb-4">Connected Account</h2>
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 bg-success-100 rounded-full flex items-center justify-center">
+                        <svg class="w-6 h-6 text-success-600" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <p class="font-medium text-gray-900">{{ mailbox.email_address }}</p>
+                        <p class="text-sm text-gray-500">Active</p>
+                    </div>
+                </div>
+                <button
+                    onclick="if(confirm('Are you sure? This will stop email processing and delete all data within 7 days.')) { window.location.href='/account'; }"
+                    class="btn btn-secondary text-sm"
+                >
+                    Disconnect
+                </button>
+            </div>
+        </div>
+
+        <!-- Action Mode Section -->
+        <div class="card mb-8">
+            <div class="flex items-start justify-between mb-4">
+                <h2 class="text-lg font-semibold text-gray-900">Action Mode</h2>
+                <!-- Help Tooltip -->
+                <div x-data="{ open: false }" class="relative">
+                    <button
+                        @click="open = !open"
+                        class="w-6 h-6 rounded-full bg-gray-200 text-gray-600 hover:bg-gray-300 flex items-center justify-center text-sm font-medium focus-ring"
+                        aria-label="Help"
+                    >
+                        ?
+                    </button>
+                    <div
+                        x-show="open"
+                        @click.away="open = false"
+                        x-transition
+                        class="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 p-4 z-10"
+                        x-cloak
+                    >
+                        <button @click="open = false" class="absolute top-2 right-2 text-gray-400 hover:text-gray-600">
+                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
+                            </svg>
+                        </button>
+                        <p class="text-sm text-gray-700">
+                            <strong>Sandbox mode</strong> logs what we would do without actually moving emails. This lets you review our decisions safely.
+                            <br><br>
+                            <strong>Action mode</strong> moves emails automatically (you can still undo for 30 days).
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Radio Buttons for Mode Selection -->
+            <div class="space-y-3" x-data="{ mode: {{ 'true' if settings.action_mode_enabled else 'false' }} }">
+                <label class="flex items-start space-x-3 p-3 rounded-lg border-2 cursor-pointer transition"
+                       :class="!mode ? 'border-primary-600 bg-primary-50' : 'border-gray-200 hover:border-gray-300'">
+                    <input
+                        type="radio"
+                        name="action_mode"
+                        value="false"
+                        x-model="mode"
+                        @change="fetch('/api/settings/toggle', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRF-Token': document.cookie.split('csrf_token=')[1]?.split(';')[0]
+                            },
+                            body: JSON.stringify({field: 'action_mode_enabled', value: false})
+                        }).then(() => window.showToast('Sandbox mode enabled', 'success'))"
+                        class="mt-1"
+                    >
+                    <div>
+                        <p class="font-medium text-gray-900">Sandbox Mode (Review only)</p>
+                        <p class="text-sm text-gray-600">Safe mode - we log actions but don't move emails</p>
+                    </div>
+                </label>
+
+                <label class="flex items-start space-x-3 p-3 rounded-lg border-2 cursor-pointer transition"
+                       :class="mode ? 'border-primary-600 bg-primary-50' : 'border-gray-200 hover:border-gray-300'">
+                    <input
+                        type="radio"
+                        name="action_mode"
+                        value="true"
+                        x-model="mode"
+                        @change="fetch('/api/settings/toggle', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRF-Token': document.cookie.split('csrf_token=')[1]?.split(';')[0]
+                            },
+                            body: JSON.stringify({field: 'action_mode_enabled', value: true})
+                        }).then(() => window.showToast('Action mode enabled', 'success'))"
+                        class="mt-1"
+                    >
+                    <div>
+                        <p class="font-medium text-gray-900">Action Mode (Archive/trash automatically)</p>
+                        <p class="text-sm text-gray-600">Moves emails automatically (30-day undo available)</p>
+                    </div>
+                </label>
+            </div>
+
+            <!-- Warning Banner (shown if sandbox mode) -->
+            {% if not settings.action_mode_enabled %}
+            <div class="mt-4 bg-warning-50 border border-warning-200 rounded-lg p-4">
+                <div class="flex items-start space-x-2">
+                    <svg class="w-5 h-5 text-warning-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                    </svg>
+                    <p class="text-sm text-warning-800">
+                        <strong>Sandbox mode is active.</strong> No emails will be moved until you enable Action Mode.
+                    </p>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Confidence Thresholds Section -->
+        <div class="card mb-8">
+            <div class="flex items-start justify-between mb-4">
+                <h2 class="text-lg font-semibold text-gray-900">Confidence Thresholds</h2>
+                <!-- Help Tooltip -->
+                <div x-data="{ open: false }" class="relative">
+                    <button
+                        @click="open = !open"
+                        class="w-6 h-6 rounded-full bg-gray-200 text-gray-600 hover:bg-gray-300 flex items-center justify-center text-sm font-medium focus-ring"
+                        aria-label="Help"
+                    >
+                        ?
+                    </button>
+                    <div
+                        x-show="open"
+                        @click.away="open = false"
+                        x-transition
+                        class="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 p-4 z-10"
+                        x-cloak
+                    >
+                        <button @click="open = false" class="absolute top-2 right-2 text-gray-400 hover:text-gray-600">
+                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
+                            </svg>
+                        </button>
+                        <p class="text-sm text-gray-700">
+                            Higher values mean we'll only act on very confident classifications. Lower values are more aggressive but may have more false positives.
+                            <br><br>
+                            We recommend starting at 0.85 (85%) for trash and 0.55 (55%) for archive.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <form
+                hx-post="/api/settings/update"
+                hx-trigger="submit"
+                hx-target="#threshold-save-message"
+                hx-indicator="#threshold-loading"
+            >
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+                <!-- Auto-Trash Threshold -->
+                <div class="mb-6" x-data="{ value: {{ settings.confidence_auto_threshold }} }">
+                    <label class="block text-sm font-medium text-gray-900 mb-2">
+                        Auto-Trash Threshold
+                    </label>
+                    <div class="flex items-center space-x-4">
+                        <input
+                            type="range"
+                            name="confidence_auto_threshold"
+                            min="0.5"
+                            max="1.0"
+                            step="0.05"
+                            x-model="value"
+                            class="flex-1"
+                        >
+                        <span class="text-sm font-medium text-gray-900 min-w-[3rem]" x-text="value"></span>
+                    </div>
+                    <p class="text-sm text-gray-600 mt-1">Higher = only very obvious spam gets trashed</p>
+                </div>
+
+                <!-- Auto-Archive Threshold -->
+                <div class="mb-6" x-data="{ value: {{ settings.confidence_review_threshold }} }">
+                    <label class="block text-sm font-medium text-gray-900 mb-2">
+                        Auto-Archive Threshold
+                    </label>
+                    <div class="flex items-center space-x-4">
+                        <input
+                            type="range"
+                            name="confidence_review_threshold"
+                            min="0.5"
+                            max="1.0"
+                            step="0.05"
+                            x-model="value"
+                            class="flex-1"
+                        >
+                        <span class="text-sm font-medium text-gray-900 min-w-[3rem]" x-text="value"></span>
+                    </div>
+                    <p class="text-sm text-gray-600 mt-1">Emails between this and trash threshold get archived</p>
+                </div>
+
+                <!-- Hidden fields for other settings (unchanged) -->
+                <input type="hidden" name="digest_schedule" value="{{ settings.digest_schedule }}">
+                <input type="hidden" name="action_mode_enabled" value="{{ settings.action_mode_enabled }}">
+                <input type="hidden" name="auto_trash_promotions" value="{{ settings.auto_trash_promotions }}">
+                <input type="hidden" name="auto_trash_social" value="{{ settings.auto_trash_social }}">
+                <input type="hidden" name="keep_receipts" value="{{ settings.keep_receipts }}">
+
+                <!-- Save Button -->
+                <div class="flex items-center space-x-3">
+                    <button type="submit" class="btn btn-primary">
+                        Save Thresholds
+                    </button>
+                    <span id="threshold-loading" class="htmx-indicator text-sm text-gray-600">Saving...</span>
+                </div>
+
+                <!-- Save Message -->
+                <div id="threshold-save-message" class="mt-3"></div>
+            </form>
+        </div>
+
+        <!-- Weekly Digest Section -->
+        <div class="card mb-8">
+            <div class="flex items-start justify-between mb-4">
+                <h2 class="text-lg font-semibold text-gray-900">Weekly Digest</h2>
+                <!-- Help Tooltip -->
+                <div x-data="{ open: false }" class="relative">
+                    <button
+                        @click="open = !open"
+                        class="w-6 h-6 rounded-full bg-gray-200 text-gray-600 hover:bg-gray-300 flex items-center justify-center text-sm font-medium focus-ring"
+                        aria-label="Help"
+                    >
+                        ?
+                    </button>
+                    <div
+                        x-show="open"
+                        @click.away="open = false"
+                        x-transition
+                        class="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 p-4 z-10"
+                        x-cloak
+                    >
+                        <button @click="open = false" class="absolute top-2 right-2 text-gray-400 hover:text-gray-600">
+                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
+                            </svg>
+                        </button>
+                        <p class="text-sm text-gray-700">
+                            We'll send you a summary every week showing what we moved, what we're unsure about, and quick links to undo anything.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="space-y-3">
+                <label class="flex items-center space-x-3">
+                    <input
+                        type="checkbox"
+                        {% if settings.digest_schedule != 'off' %}checked{% endif %}
+                        class="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                    >
+                    <span class="text-sm text-gray-700">Send weekly digest</span>
+                </label>
+
+                <div class="flex items-center space-x-3 text-sm">
+                    <span class="text-gray-700">Schedule:</span>
+                    <select class="form-select text-sm rounded-md border-gray-300">
+                        <option value="weekly" {% if settings.digest_schedule == 'weekly' %}selected{% endif %}>Every Sunday</option>
+                        <option value="daily" {% if settings.digest_schedule == 'daily' %}selected{% endif %}>Daily</option>
+                        <option value="off" {% if settings.digest_schedule == 'off' %}selected{% endif %}>Off</option>
+                    </select>
+                    <span class="text-gray-700">at</span>
+                    <select class="form-select text-sm rounded-md border-gray-300">
+                        <option>9 AM</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Actions Section (placeholder) -->
+        <div class="text-center py-8">
+            <p class="text-gray-600 mb-4">
+                More settings coming soon: Block & Allow lists, Backlog cleanup
+            </p>
+            <a href="/audit" class="link">View Activity Log →</a>
+        </div>
+    </div>
+</section>
+{% endblock %}
