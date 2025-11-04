@@ -13,18 +13,25 @@ This skill teaches the complete workflow from writing code → committing → de
 
 ### CRITICAL RULES - NEVER VIOLATE:
 
-1. **ALWAYS wait for CI/CD checks to complete** before merging
-   - Never force push to main/master
-   - Never bypass branch protection rules
-   - Never use `--no-verify` or skip hooks
+1. **NEVER push directly to main branch**
+   - ALWAYS create a feature branch for ALL changes
+   - ALWAYS create a pull request (PR) to merge to main
+   - NEVER use `git push origin main` directly
+   - Exception: None (no exceptions allowed)
 
-2. **ALWAYS wait for Railway deployment to succeed** before considering a push complete
-   - After pushing to GitHub, monitor Railway deployment logs
+2. **ALWAYS wait for CI/CD checks and Railway build to complete** before merging PR
+   - After creating PR, monitor GitHub Actions/checks
+   - Wait for Railway deployment to succeed
+   - Verify health check returns 200 OK
+   - Only merge PR after all checks pass
+
+3. **ALWAYS wait for Railway deployment to succeed** before considering work complete
+   - After merging PR, monitor Railway deployment logs
    - Verify the build completes successfully
    - Test the deployed app on Railway domain
-   - If deployment fails, fix the issue before moving on
+   - If deployment fails, create hotfix branch and new PR
 
-3. **NEVER commit secrets to the repository**
+4. **NEVER commit secrets to the repository**
    - GitHub push protection will block API keys
    - Use placeholder values in documentation files
    - Keep real secrets in `.env` (gitignored) and Railway Variables only
@@ -119,9 +126,14 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 
 ## Git Commit Commands
 
-### Basic Workflow
+### REQUIRED Workflow (Feature Branch → PR)
 
 ```bash
+# 0. ALWAYS start with feature branch (NEVER work on main)
+git checkout main
+git pull origin main
+git checkout -b feature/oauth-implementation
+
 # 1. Stage changes
 git add app/modules/auth/routes.py
 git add tests/security/test_token_encryption.py
@@ -142,10 +154,32 @@ Tokens are encrypted using Fernet before database storage.
 
 Co-Authored-By: Claude <noreply@anthropic.com>"
 
-# 4. Push to GitHub
-git push
+# 4. Push feature branch to GitHub (NOT main)
+git push -u origin feature/oauth-implementation
 
-# 5. WAIT for Railway deployment (see verification steps below)
+# 5. Create pull request
+gh pr create --title "Add OAuth implementation" --body "$(cat <<'EOF'
+## Summary
+- Implemented OAuth flow for Gmail
+- Added token encryption with Fernet
+- Created auth module routes
+
+## Test plan
+- [ ] Run security tests
+- [ ] Test OAuth flow end-to-end
+- [ ] Verify Railway deployment
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+EOF
+)"
+
+# 6. WAIT for checks to pass
+gh pr checks
+
+# 7. WAIT for Railway preview deployment (if configured)
+# Check deployment logs
+
+# 8. User reviews and merges PR (or use gh pr merge after approval)
 ```
 
 ### Advanced Workflows
@@ -265,42 +299,91 @@ railway logs --limit 100 | grep -i error
 
 ## Branch Strategy
 
-### Main Branch (production)
+### Main Branch (production) - PROTECTED
 
-- Protected branch (no force push)
-- All commits must deploy successfully to Railway
-- Must pass all tests
-- Code review required (future)
+**CRITICAL: NEVER push directly to main. ALWAYS use pull requests.**
 
-### Feature Branches (future)
+- Protected branch (no force push, no direct commits)
+- All changes via pull requests only
+- Must pass all tests before PR merge
+- Must pass Railway deployment before PR merge
+- Code review by user (approve PR before merge)
 
+### Feature Branch Workflow (REQUIRED FOR ALL CHANGES)
+
+**Step 1: Create Feature Branch**
 ```bash
-# Create feature branch
-git checkout -b feature/backlog-cleanup
+# ALWAYS start from latest main
+git checkout main
+git pull origin main
 
-# Work on feature
-git add .
-git commit -m "Add backlog analysis module"
-
-# Push to GitHub
-git push -u origin feature/backlog-cleanup
-
-# Create PR
-gh pr create --title "Add backlog cleanup feature" --body "..."
+# Create feature branch (descriptive name)
+git checkout -b feature/skills-system
+# or
+git checkout -b fix/railway-deployment
+# or
+git checkout -b test/security-tests
 ```
 
-### Branch Naming
+**Step 2: Make Changes and Commit**
+```bash
+# Work on feature
+git add .
+git commit -m "Add comprehensive skills system"
 
-- `feature/` - New features
-- `fix/` - Bug fixes
-- `refactor/` - Code refactoring
-- `test/` - Test additions
-- `docs/` - Documentation
+# Push feature branch to GitHub
+git push -u origin feature/skills-system
+```
 
-Examples:
-- `feature/gmail-webhooks`
+**Step 3: Create Pull Request**
+```bash
+# Create PR using gh CLI
+gh pr create --title "Add Claude Skills system" --body "..."
+
+# Or create PR via GitHub web interface
+```
+
+**Step 4: Wait for Checks**
+```bash
+# Monitor PR status
+gh pr view
+
+# Wait for:
+# - GitHub Actions (if configured)
+# - Railway preview deployment (if configured)
+# - All checks to pass
+```
+
+**Step 5: Merge PR (Only After Checks Pass)**
+```bash
+# User reviews and approves PR
+# Then merge (squash and merge recommended)
+gh pr merge --squash
+
+# Delete feature branch after merge
+git branch -d feature/skills-system
+git push origin --delete feature/skills-system
+```
+
+### Branch Naming (Required Format)
+
+**Pattern:** `<type>/<description>`
+
+**Types:**
+- `feature/` - New features (e.g., `feature/gmail-webhooks`)
+- `fix/` - Bug fixes (e.g., `fix/railway-deployment`)
+- `refactor/` - Code refactoring (e.g., `refactor/auth-module`)
+- `test/` - Test additions (e.g., `test/security-tests`)
+- `docs/` - Documentation (e.g., `docs/update-readme`)
+- `hotfix/` - Urgent production fixes (e.g., `hotfix/token-leak`)
+
+**Examples:**
+- `feature/backlog-cleanup`
 - `fix/oauth-token-refresh`
 - `test/security-token-encryption`
+- `docs/skills-system`
+
+**NEVER name a branch `main` or `master`**
 
 ## Creating Pull Requests
 
