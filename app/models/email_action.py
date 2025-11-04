@@ -50,7 +50,7 @@ class EmailAction(Base):
     confidence = Column(Float, nullable=True)  # 0.0-1.0 confidence score
 
     # Classification metadata (for learning and debugging)
-    metadata = Column(JSONB, nullable=True)  # Dict: {gmail_category, has_unsubscribe, sender_open_rate, etc.}
+    classification_metadata = Column(JSONB, nullable=True)  # Dict: {gmail_category, has_unsubscribe, sender_open_rate, etc.}
 
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)

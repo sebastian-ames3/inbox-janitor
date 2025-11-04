@@ -488,7 +488,7 @@ CREATE TABLE email_actions (
     action TEXT NOT NULL,  -- 'keep' | 'archive' | 'trash' | 'review' | 'undo'
     reason TEXT,
     confidence FLOAT,
-    metadata JSONB,  -- Classification signals
+    classification_metadata JSONB,  -- Classification signals
     created_at TIMESTAMPTZ DEFAULT NOW(),
     undone_at TIMESTAMPTZ,
     can_undo_until TIMESTAMPTZ  -- 30 days from action
