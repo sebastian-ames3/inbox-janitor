@@ -14,6 +14,7 @@ from sqlalchemy import select
 from datetime import datetime, timedelta
 
 from app.core.database import get_db
+from app.core.config import settings
 from app.core.security import encrypt_token
 from app.models import User, Mailbox, UserSettings
 from app.modules.auth.gmail_oauth import gmail_oauth
