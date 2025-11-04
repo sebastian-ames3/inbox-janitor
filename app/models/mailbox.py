@@ -45,6 +45,8 @@ class Mailbox(Base):
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     last_synced_at = Column(DateTime, nullable=True)
+    last_webhook_received_at = Column(DateTime, nullable=True)  # Track webhook delivery for fallback polling
+    last_used_at = Column(DateTime, default=datetime.utcnow, nullable=True)  # Track user activity
 
     # Relationships
     user = relationship("User", back_populates="mailboxes")
