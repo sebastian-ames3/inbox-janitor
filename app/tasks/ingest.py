@@ -297,10 +297,9 @@ def process_gmail_history(self, mailbox_id: str, history_id: str):
                         }
                     )
 
-                    # Enqueue classification task (Task 5.0)
-                    # TODO: Implement classification task
-                    # from app.tasks.classify import classify_email_tier1
-                    # classify_email_tier1.delay(mailbox_id, metadata.dict())
+                    # Enqueue classification task
+                    from app.tasks.classify import classify_email_tier1 as classify_task
+                    classify_task.delay(mailbox_id, metadata.dict())
 
                     messages_processed += 1
 
