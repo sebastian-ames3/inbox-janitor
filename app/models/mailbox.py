@@ -51,6 +51,7 @@ class Mailbox(Base):
     # Relationships
     user = relationship("User", back_populates="mailboxes")
     email_actions = relationship("EmailAction", back_populates="mailbox", cascade="all, delete-orphan")
+    email_metadata = relationship("EmailMetadataDB", back_populates="mailbox", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<Mailbox {self.provider}:{self.email_address}>"
