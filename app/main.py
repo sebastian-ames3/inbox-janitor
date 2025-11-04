@@ -6,10 +6,18 @@ Entry point for the application. Mounts all module routers.
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+from starlette.middleware.sessions import SessionMiddleware
 from contextlib import asynccontextmanager
 
 from app.core.config import settings
 from app.core.database import init_db, close_db
+from app.core.middleware import (
+    configure_csrf,
+    configure_rate_limiting,
+    add_security_headers,
+)
 from app.modules.auth.routes import router as auth_router
 from app.api.webhooks import router as webhook_router
 
@@ -58,6 +66,26 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Configure security middleware (order matters!)
+# 1. Session Management - must be first to handle session cookies
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=settings.SESSION_SECRET_KEY,
+    max_age=86400,  # 24 hours in seconds
+    same_site="lax",  # CSRF protection
+    https_only=settings.is_production,  # Only send over HTTPS in production
+    session_cookie="session",
+)
+
+# 2. CSRF Protection - depends on session being available
+configure_csrf(app)
+
+# 3. Rate Limiting - protect endpoints from abuse
+limiter = configure_rate_limiting(app)
+
+# 4. Security Headers - last, applied to all responses
+add_security_headers(app)
 
 # Mount routers
 app.include_router(auth_router)
