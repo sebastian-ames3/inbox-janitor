@@ -245,3 +245,56 @@ async def get_auth_status(
             for mailbox in mailboxes
         ],
     }
+
+
+@router.get("/status/by-email/{email}")
+async def get_auth_status_by_email(
+    email: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Get authentication status for a user by email.
+
+    Returns user info and connected mailboxes.
+
+    Path Params:
+        email: User's email address
+
+    Returns:
+        User info and list of connected mailboxes
+    """
+    # Get user by email
+    result = await db.execute(select(User).where(User.email == email))
+    user = result.scalar_one_or_none()
+
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Get user's mailboxes
+    result = await db.execute(
+        select(Mailbox).where(
+            Mailbox.user_id == user.id,
+            Mailbox.is_active == True,
+        )
+    )
+    mailboxes = result.scalars().all()
+
+    return {
+        "user_id": str(user.id),
+        "email": user.email,
+        "created_at": user.created_at.isoformat(),
+        "connected_mailboxes": [
+            {
+                "id": str(mailbox.id),
+                "provider": mailbox.provider,
+                "email": mailbox.email_address,
+                "connected_at": mailbox.created_at.isoformat(),
+                "token_expires_at": (
+                    mailbox.token_expires_at.isoformat()
+                    if mailbox.token_expires_at
+                    else None
+                ),
+            }
+            for mailbox in mailboxes
+        ],
+    }
