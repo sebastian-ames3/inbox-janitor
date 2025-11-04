@@ -218,9 +218,18 @@ def process_gmail_history(self, mailbox_id: str, history_id: str):
     This task is enqueued by the webhook endpoint when Gmail sends
     a push notification about new emails.
 
+    Flow:
+    1. Fetch new message IDs from history.list()
+    2. For each message, extract metadata
+    3. Enqueue classification tasks (Task 5.0)
+    4. Update mailbox.last_history_id
+
     Args:
         mailbox_id: UUID of mailbox (as string)
         history_id: Gmail history ID to start from
+
+    Returns:
+        Dict with processing stats
 
     Raises:
         Exception: Retries up to 3 times with exponential backoff
@@ -229,19 +238,132 @@ def process_gmail_history(self, mailbox_id: str, history_id: str):
         # Enqueued by webhook endpoint
         process_gmail_history.delay(mailbox_id, history_id)
     """
+    import asyncio
+
     logger.info(f"Processing Gmail history for mailbox {mailbox_id}, history_id={history_id}")
 
-    # TODO: Implement in Task 4.0
-    # This task will:
-    # 1. Fetch new emails using history.list()
-    # 2. For each email, extract metadata
-    # 3. Enqueue classification tasks
-    # 4. Update mailbox.last_history_id
+    async def _process():
+        from app.modules.ingest.metadata_extractor import (
+            fetch_new_emails_from_history,
+            extract_email_metadata
+        )
+        from app.models.email_metadata import EmailMetadataExtractError
+        from sqlalchemy import select
+        from app.core.database import get_async_session
+        from app.models.mailbox import Mailbox
 
-    logger.warning("process_gmail_history not yet implemented (Task 4.0)")
+        messages_processed = 0
+        messages_failed = 0
+        new_history_id = history_id
 
-    return {
-        "status": "pending_implementation",
-        "mailbox_id": mailbox_id,
-        "history_id": history_id,
-    }
+        try:
+            # Fetch new message IDs from history
+            message_ids = await fetch_new_emails_from_history(mailbox_id, history_id)
+
+            logger.info(f"Found {len(message_ids)} new messages for mailbox {mailbox_id}")
+
+            if not message_ids:
+                # No new messages - still update history_id if newer
+                async with get_async_session() as session:
+                    result = await session.execute(
+                        select(Mailbox).where(Mailbox.id == mailbox_id)
+                    )
+                    mailbox = result.scalar_one_or_none()
+
+                    if mailbox:
+                        # Update to current history_id
+                        mailbox.last_history_id = history_id
+                        await session.commit()
+
+                return {
+                    "status": "success",
+                    "messages_processed": 0,
+                    "messages_failed": 0,
+                    "mailbox_id": mailbox_id
+                }
+
+            # Process each message
+            for message_id in message_ids:
+                try:
+                    # Extract metadata
+                    metadata = await extract_email_metadata(mailbox_id, message_id)
+
+                    logger.info(
+                        f"Extracted metadata: {message_id} from {metadata.from_address}",
+                        extra={
+                            "message_id": message_id,
+                            "from_address": metadata.from_address,
+                            "subject": metadata.subject
+                        }
+                    )
+
+                    # Enqueue classification task (Task 5.0)
+                    # TODO: Implement classification task
+                    # from app.tasks.classify import classify_email_tier1
+                    # classify_email_tier1.delay(mailbox_id, metadata.dict())
+
+                    messages_processed += 1
+
+                except EmailMetadataExtractError as e:
+                    # Extraction failed for this message - log and continue
+                    messages_failed += 1
+                    logger.warning(f"Failed to extract metadata for {message_id}: {e}")
+
+                except Exception as e:
+                    # Unexpected error - log and continue
+                    messages_failed += 1
+                    logger.error(f"Unexpected error processing {message_id}: {e}")
+
+                    # Log to Sentry
+                    import sentry_sdk
+                    sentry_sdk.capture_exception(e, extra={
+                        "mailbox_id": mailbox_id,
+                        "message_id": message_id,
+                        "error": "Message processing failed"
+                    })
+
+            # Update mailbox with latest history ID
+            async with get_async_session() as session:
+                result = await session.execute(
+                    select(Mailbox).where(Mailbox.id == mailbox_id)
+                )
+                mailbox = result.scalar_one_or_none()
+
+                if mailbox:
+                    # Update last_history_id to the one from the webhook
+                    # (Gmail provides the latest history ID in notifications)
+                    mailbox.last_history_id = history_id
+                    await session.commit()
+
+                    logger.info(f"Updated mailbox {mailbox_id} history_id to {history_id}")
+
+            logger.info(
+                f"Completed processing for mailbox {mailbox_id}: "
+                f"{messages_processed} processed, {messages_failed} failed"
+            )
+
+            return {
+                "status": "success",
+                "messages_processed": messages_processed,
+                "messages_failed": messages_failed,
+                "mailbox_id": mailbox_id,
+                "history_id": history_id
+            }
+
+        except Exception as e:
+            logger.error(f"Failed to process history for mailbox {mailbox_id}: {e}")
+
+            # Log to Sentry
+            import sentry_sdk
+            sentry_sdk.capture_exception(e, extra={
+                "mailbox_id": mailbox_id,
+                "history_id": history_id,
+                "error": "History processing failed"
+            })
+
+            # Retry with exponential backoff
+            retry_delay = 60 * (2 ** self.request.retries)
+            raise self.retry(exc=e, countdown=retry_delay)
+
+    # Run async function
+    return asyncio.run(_process())
