@@ -87,6 +87,12 @@ limiter = configure_rate_limiting(app)
 # 4. Security Headers - last, applied to all responses
 add_security_headers(app)
 
+# Configure Jinja2 templates
+templates = Jinja2Templates(directory="app/templates")
+
+# Mount static files (CSS, JS, images)
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
+
 # Mount routers
 app.include_router(auth_router)
 app.include_router(webhook_router, prefix="/webhooks", tags=["webhooks"])
