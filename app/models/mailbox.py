@@ -45,10 +45,13 @@ class Mailbox(Base):
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     last_synced_at = Column(DateTime, nullable=True)
+    last_webhook_received_at = Column(DateTime, nullable=True)  # Track webhook delivery for fallback polling
+    last_used_at = Column(DateTime, default=datetime.utcnow, nullable=True)  # Track user activity
 
     # Relationships
     user = relationship("User", back_populates="mailboxes")
     email_actions = relationship("EmailAction", back_populates="mailbox", cascade="all, delete-orphan")
+    email_metadata = relationship("EmailMetadataDB", back_populates="mailbox", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<Mailbox {self.provider}:{self.email_address}>"

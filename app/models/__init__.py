@@ -9,6 +9,7 @@ from app.models.mailbox import Mailbox
 from app.models.email_action import EmailAction
 from app.models.user_settings import UserSettings
 from app.models.sender_stats import SenderStats
+from app.models.email_metadata_db import EmailMetadataDB
 
 __all__ = [
     "User",
@@ -16,4 +17,5 @@ __all__ = [
     "EmailAction",
     "UserSettings",
     "SenderStats",
+    "EmailMetadataDB",
 ]

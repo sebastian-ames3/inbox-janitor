@@ -272,3 +272,115 @@ class GmailOAuthManager:
 
 # Global OAuth manager instance
 gmail_oauth = GmailOAuthManager()
+
+
+# Helper functions for Gmail API operations
+
+async def get_gmail_service(mailbox_id: str):
+    """
+    Get authenticated Gmail API service for a mailbox.
+
+    Automatically handles:
+    - Fetching mailbox from database
+    - Checking if token is expired
+    - Refreshing token if needed
+    - Building Gmail API service
+
+    Args:
+        mailbox_id: UUID of mailbox
+
+    Returns:
+        Authenticated Gmail API service object
+
+    Raises:
+        ValueError: If mailbox not found or inactive
+        Exception: If token refresh fails (mailbox marked inactive)
+
+    Usage:
+        service = await get_gmail_service(mailbox_id)
+        messages = service.users().messages().list(userId='me').execute()
+    """
+    from sqlalchemy import select
+    from app.core.database import get_async_session
+    from app.models.mailbox import Mailbox
+
+    # Get database session
+    async with get_async_session() as session:
+        # Fetch mailbox
+        result = await session.execute(
+            select(Mailbox).where(Mailbox.id == mailbox_id)
+        )
+        mailbox = result.scalar_one_or_none()
+
+        if not mailbox:
+            raise ValueError(f"Mailbox {mailbox_id} not found")
+
+        if not mailbox.is_active:
+            raise ValueError(f"Mailbox {mailbox_id} is inactive")
+
+        # Check if token is expired or will expire soon (within 5 minutes)
+        from datetime import datetime, timedelta
+        if mailbox.token_expires_at and mailbox.token_expires_at < datetime.utcnow() + timedelta(minutes=5):
+            try:
+                # Refresh token
+                new_access_token, new_expires_at = gmail_oauth.refresh_access_token(
+                    mailbox.encrypted_refresh_token
+                )
+
+                # Update mailbox with new token
+                mailbox.encrypted_access_token = new_access_token
+                mailbox.token_expires_at = new_expires_at
+                await session.commit()
+
+            except Exception as e:
+                # Token refresh failed - mark mailbox as inactive
+                mailbox.is_active = False
+                await session.commit()
+
+                # Log to Sentry
+                import sentry_sdk
+                sentry_sdk.capture_exception(e, extra={
+                    "mailbox_id": str(mailbox_id),
+                    "error": "Token refresh failed"
+                })
+
+                raise Exception(f"Token refresh failed for mailbox {mailbox_id}. Please re-authenticate.")
+
+        # Build and return Gmail service
+        return gmail_oauth.build_gmail_service(mailbox.encrypted_access_token)
+
+
+async def decrypt_and_refresh_token(mailbox) -> str:
+    """
+    Decrypt access token and refresh if needed.
+
+    Args:
+        mailbox: Mailbox SQLAlchemy object
+
+    Returns:
+        Decrypted access token (plaintext)
+
+    Raises:
+        Exception: If token refresh fails
+
+    WARNING: This returns plaintext token. Never log it!
+
+    Usage:
+        access_token = await decrypt_and_refresh_token(mailbox)
+        # Use token for API calls
+    """
+    from datetime import datetime, timedelta
+
+    # Check if token needs refresh
+    if mailbox.token_expires_at and mailbox.token_expires_at < datetime.utcnow() + timedelta(minutes=5):
+        # Refresh token
+        new_encrypted_access, new_expires_at = gmail_oauth.refresh_access_token(
+            mailbox.encrypted_refresh_token
+        )
+
+        # Update mailbox (caller should commit)
+        mailbox.encrypted_access_token = new_encrypted_access
+        mailbox.token_expires_at = new_expires_at
+
+    # Decrypt and return access token
+    return decrypt_token(mailbox.encrypted_access_token)
