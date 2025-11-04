@@ -1,5 +1,21 @@
 # Railway Deployment Setup Guide
 
+**Last Updated:** 2025-11-03
+**Status:** Updated with database migrations
+
+This guide walks through deploying Inbox Janitor to Railway with proper environment configuration.
+
+---
+
+## What's New
+
+- ✅ Database migrations now run automatically on deploy (via Procfile)
+- ✅ Initial schema migration created (`001_initial_week1_schema.py`)
+- ✅ `.env.example` template added for reference
+- ✅ Health check endpoint available at `/health`
+
+---
+
 ## How to Set Environment Variables in Railway
 
 ### Step 1: Access Your Railway Project
@@ -168,15 +184,44 @@ Before deploying, verify you have these in Railway Variables:
 
 1. **Save all variables** in Railway
 2. **Redeploy** your service (Railway may auto-deploy when you add variables)
-3. **Check logs** to ensure no missing variable errors:
+3. **Monitor deployment**:
    - Click on your Web Service
    - Click on the **Deployments** tab
    - Click on the latest deployment
-   - View logs for any errors
+   - Watch for migration success:
+     ```
+     INFO  [alembic.runtime.migration] Running upgrade  -> 001, Initial Week 1 schema
+     ```
+   - Watch for startup message:
+     ```
+     Starting Inbox Janitor...
+     Environment: production
+     ```
+4. **Test health endpoint**:
+   ```bash
+   curl https://your-app-name.up.railway.app/health
+   ```
+   Expected response:
+   ```json
+   {
+     "status": "healthy",
+     "service": "Inbox Janitor",
+     "environment": "production"
+   }
+   ```
 
 ---
 
 ## Troubleshooting
+
+### 502 Bad Gateway
+**Cause:** App failed to start (usually missing environment variables)
+
+**Fix:**
+1. Check Railway logs for specific error
+2. Look for `Field required` → Missing env var
+3. Add missing variable in Variables tab
+4. Railway will auto-redeploy
 
 ### Error: "Field required" in logs
 **Cause:** Missing required environment variable
@@ -192,6 +237,15 @@ Before deploying, verify you have these in Railway Variables:
 **Cause:** ENCRYPTION_KEY must be exactly 44 characters (Fernet key format)
 
 **Fix:** Use the key generated above (do not modify it).
+
+### Migration Errors
+**Error:** `alembic.util.exc.CommandError` in logs
+
+**Fix:**
+1. Check DATABASE_URL is set (auto-injected by Railway PostgreSQL)
+2. Verify PostgreSQL service is running
+3. Check logs for specific SQL errors
+4. If needed, rollback: See `skills/railway-deployment.md`
 
 ---
 
