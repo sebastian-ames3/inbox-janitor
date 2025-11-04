@@ -25,6 +25,10 @@ async def lifespan(app: FastAPI):
     print(f"Starting {settings.APP_NAME}...")
     print(f"Environment: {settings.ENVIRONMENT}")
 
+    # Initialize Sentry error monitoring
+    from app.core.sentry import init_sentry
+    init_sentry()
+
     # Initialize database (only in development - use Alembic in production)
     if settings.ENVIRONMENT == "development":
         await init_db()
@@ -81,12 +85,27 @@ async def health_check():
     Health check endpoint for monitoring.
 
     Used by Railway, Docker, and load balancers.
+
+    Returns comprehensive metrics for:
+    - Database connectivity
+    - Redis (Celery broker)
+    - External APIs (Gmail, OpenAI)
+    - Webhook activity
+
+    Status codes:
+    - healthy: All systems operational
+    - degraded: Some warnings but functional
+    - unhealthy: Critical components down
     """
+    from app.core.health import get_health_metrics
+
+    metrics = await get_health_metrics()
+
     return {
-        "status": "healthy",
         "service": settings.APP_NAME,
-        "environment": settings.ENVIRONMENT,
         "version": "0.1.0",
+        "environment": settings.ENVIRONMENT,
+        **metrics,
     }
 
 

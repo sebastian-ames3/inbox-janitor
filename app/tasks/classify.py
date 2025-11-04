@@ -156,11 +156,12 @@ def classify_email_tier1(self, mailbox_id: str, metadata_dict: dict):
             )
 
             # Log to Sentry
-            import sentry_sdk
-            sentry_sdk.capture_exception(e, extra={
+            from app.core.sentry import capture_business_error
+            capture_business_error(e, context={
                 "mailbox_id": mailbox_id,
                 "message_id": metadata_dict.get('message_id'),
-                "error": "Classification failed"
+                "error": "Classification failed",
+                "retry_count": self.request.retries,
             })
 
             # Retry with exponential backoff

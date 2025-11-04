@@ -76,8 +76,8 @@ def renew_all_gmail_watches():
                     logger.error(f"Failed to renew watch for mailbox {mailbox.id}: {e}")
 
                     # Log to Sentry
-                    import sentry_sdk
-                    sentry_sdk.capture_exception(e, extra={
+                    from app.core.sentry import capture_business_error
+                    capture_business_error(e, context={
                         "mailbox_id": str(mailbox.id),
                         "email": mailbox.email_address,
                         "task": "renew_all_gmail_watches",
@@ -187,8 +187,8 @@ def fallback_poll_gmail():
                     logger.error(f"Fallback polling failed for mailbox {mailbox.id}: {e}")
 
                     # Log to Sentry
-                    import sentry_sdk
-                    sentry_sdk.capture_exception(e, extra={
+                    from app.core.sentry import capture_business_error
+                    capture_business_error(e, context={
                         "mailbox_id": str(mailbox.id),
                         "email": mailbox.email_address,
                         "task": "fallback_poll_gmail",
@@ -348,8 +348,8 @@ def process_gmail_history(self, mailbox_id: str, history_id: str):
                     logger.error(f"Unexpected error processing {message_id}: {e}")
 
                     # Log to Sentry
-                    import sentry_sdk
-                    sentry_sdk.capture_exception(e, extra={
+                    from app.core.sentry import capture_business_error
+                    capture_business_error(e, context={
                         "mailbox_id": mailbox_id,
                         "message_id": message_id,
                         "error": "Message processing failed"
@@ -387,11 +387,12 @@ def process_gmail_history(self, mailbox_id: str, history_id: str):
             logger.error(f"Failed to process history for mailbox {mailbox_id}: {e}")
 
             # Log to Sentry
-            import sentry_sdk
-            sentry_sdk.capture_exception(e, extra={
+            from app.core.sentry import capture_business_error
+            capture_business_error(e, context={
                 "mailbox_id": mailbox_id,
                 "history_id": history_id,
-                "error": "History processing failed"
+                "error": "History processing failed",
+                "retry_count": self.request.retries,
             })
 
             # Retry with exponential backoff
