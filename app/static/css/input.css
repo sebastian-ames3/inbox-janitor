@@ -1,0 +1,101 @@
+/* Tailwind CSS Input File */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom Base Styles */
+@layer base {
+  /* Hide Alpine.js elements until Alpine loads (prevents flash of unstyled content) */
+  [x-cloak] {
+    display: none !important;
+  }
+
+  /* Ensure smooth scrolling */
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* Set minimum body text size for accessibility */
+  body {
+    @apply text-base text-gray-900 antialiased;
+  }
+}
+
+/* Custom Component Styles */
+@layer components {
+  /* Button Styles */
+  .btn {
+    @apply px-4 py-2 rounded-md font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2;
+  }
+
+  .btn-primary {
+    @apply bg-primary-600 text-white hover:bg-primary-700 focus-visible:ring-primary-500;
+  }
+
+  .btn-success {
+    @apply bg-success-600 text-white hover:bg-success-700 focus-visible:ring-success-500;
+  }
+
+  .btn-danger {
+    @apply bg-danger-600 text-white hover:bg-danger-700 focus-visible:ring-danger-500;
+  }
+
+  .btn-secondary {
+    @apply bg-gray-200 text-gray-900 hover:bg-gray-300 focus-visible:ring-gray-500;
+  }
+
+  /* Large CTA button for landing page */
+  .btn-cta {
+    @apply btn btn-primary text-lg px-8 py-4 min-h-[60px] shadow-lg hover:shadow-xl;
+  }
+
+  /* Card Styles */
+  .card {
+    @apply bg-white rounded-lg border border-gray-200 shadow-sm p-6;
+  }
+
+  /* Badge Styles for Action Types */
+  .badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+
+  .badge-trash {
+    @apply bg-danger-100 text-danger-800;
+  }
+
+  .badge-archive {
+    @apply bg-warning-100 text-warning-800;
+  }
+
+  .badge-keep {
+    @apply bg-success-100 text-success-800;
+  }
+
+  .badge-review {
+    @apply bg-gray-100 text-gray-800;
+  }
+
+  /* Focus Styles for Accessibility */
+  .focus-ring {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2;
+  }
+
+  /* Link Styles */
+  .link {
+    @apply text-primary-600 hover:text-primary-700 hover:underline focus-ring rounded;
+  }
+}
+
+/* Custom Utility Classes */
+@layer utilities {
+  /* Text readability max-width */
+  .prose-readable {
+    @apply max-w-2xl;
+  }
+
+  /* Minimum touch target size (44x44px for mobile) */
+  .touch-target {
+    @apply min-h-[44px] min-w-[44px];
+  }
+}
