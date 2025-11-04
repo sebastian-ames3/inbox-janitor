@@ -4,6 +4,55 @@ All notable decisions and changes to the Inbox Janitor project.
 
 ---
 
+## [2025-11-04] - Railway Deployment Complete & OAuth Working
+
+### ✅ Completed
+- **Railway Deployment Fully Operational**
+  - Health check: https://inbox-janitor-production-03fc.up.railway.app/health
+  - Fixed 4 critical deployment issues (SQLAlchemy metadata conflict, async driver, missing encryption key, migration conflicts)
+  - PRs #10, #11, #12, #13, #14 - All following PR-only workflow ✅
+
+- **OAuth Flow End-to-End Working**
+  - Google OAuth credentials configured
+  - Gmail account connected: sebastianames3@gmail.com
+  - Tokens encrypted with Fernet and stored in PostgreSQL
+  - Redis integrated for OAuth state management (CSRF protection)
+  - Success page and status verification endpoints added
+
+- **Infrastructure Complete**
+  - PostgreSQL: Connected, migrations applied (001_initial_week1_schema.py)
+  - Redis: Connected for OAuth state tokens and future Celery queues
+  - Environment variables: All required vars set in Railway
+  - Auto-deploy from main branch working
+
+### 🔧 Deployment Fixes (PRs #10-#14)
+1. **PR #10** - Initial migrations + Procfile + environment documentation
+2. **PR #11** - Database async driver fix (postgresql:// → postgresql+asyncpg://)
+3. **PR #12** - Removed broken migration 002 (column already correct)
+4. **PR #13** - Fixed OAuth callback (missing settings import)
+5. **PR #14** - Added OAuth success page + email-based status endpoint
+
+### 🎯 Architecture Decisions Validated
+- ✅ Modular monolith structure working on Railway
+- ✅ Token encryption with Fernet working
+- ✅ Async SQLAlchemy + asyncpg driver working
+- ✅ Redis for state management working
+- ✅ PR-only workflow successfully enforced (no direct pushes to main)
+
+### 📋 Next Priorities (Week 1 Continued)
+1. **Gmail Watch Setup** - Subscribe to Pub/Sub for real-time email notifications
+2. **Metadata Extraction** - Fetch email metadata via Gmail API
+3. **Classification System** - Tier 1 (metadata signals) + Tier 2 (AI)
+4. **Backlog Cleanup** - User-initiated batch cleanup feature
+
+### 🚨 Critical Workflows Established
+- ✅ **PR-only workflow enforced** - ALL 5 PRs followed proper process
+- ✅ **Railway deployment verification** - Waited for health checks after each merge
+- ✅ **No direct pushes to main** - Git workflow strictly followed
+- ⚠️ **PRD workflow ready** - Use for complex features (>50 lines, multiple files)
+
+---
+
 ## [2024-11-03] - Claude Skills & AI Dev Workflow Adoption
 
 ### Added
@@ -328,27 +377,38 @@ All notable decisions and changes to the Inbox Janitor project.
 
 ---
 
-## Current Status (2024-11-03)
+## Current Status (2025-11-04)
 
-**Completed:**
+**Completed (Week 1 - Foundation):**
 - ✅ Modular monolith structure (app/core, app/modules, app/models)
-- ✅ Database models defined (users, mailboxes, email_actions, user_settings, sender_stats)
-- ✅ OAuth flow implemented (app/modules/auth/)
-- ✅ Alembic configured for migrations
-- ✅ FastAPI app with health endpoint
+- ✅ Database models defined and migrated to PostgreSQL
+- ✅ OAuth flow working end-to-end (Gmail connected)
+- ✅ Alembic migrations (001_initial_week1_schema.py)
+- ✅ Railway deployment operational with health checks
+- ✅ Token encryption with Fernet
+- ✅ Redis connected (OAuth state + future Celery)
 - ✅ Claude Skills system (7 skills)
 - ✅ AI Dev workflow integrated
+- ✅ PR-only git workflow enforced
 
-**In Progress:**
-- ⏳ Database migrations (not yet created from models)
-- ⏳ Railway deployment (502 error, needs debugging)
-- ⏳ Security tests (test structure exists, tests not written)
+**In Progress (Week 1 - Core Features):**
+- ⏳ Gmail Watch + Pub/Sub webhooks (real-time email notifications)
+- ⏳ Email metadata extraction via Gmail API
+- ⏳ Classification system (Tier 1: metadata signals)
+- ⏳ Security tests (token encryption, no body storage)
 
-**Next Priorities:**
-1. Fix Railway deployment and create database migrations
-2. Write critical security tests (token encryption, no body storage)
-3. Implement Gmail watch + Pub/Sub webhooks (Issue #2, #3)
-4. Migrate classifier logic from API/main.py (Issue #5)
-5. Set up Celery + Redis (Issue #4)
+**Next Priorities (Week 1 Completion):**
+1. Gmail Watch setup - Subscribe to Pub/Sub for real-time notifications
+2. Email metadata extractor - Fetch headers, labels, category
+3. Tier 1 classifier - Metadata-based classification (free, 80% accuracy)
+4. Background job queue - Celery tasks for email processing
+5. Security tests - Token encryption, SQL injection, no body storage
 
-**Reference:** See open GitHub issues and CLAUDE.md for complete roadmap.
+**Week 2 Priorities:**
+1. Tier 2 classifier - AI classification with GPT-4o-mini
+2. Action executor - Archive/trash emails via Gmail API
+3. Quarantine system - Janitor/Quarantine label + 7-day window
+4. Undo flow - Restore quarantined emails
+5. Safety tests - Job offer protection, critical keywords
+
+**Reference:** See CLAUDE.md for complete roadmap and workflow instructions.
