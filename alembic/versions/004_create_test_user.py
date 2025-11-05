@@ -75,7 +75,9 @@ def upgrade() -> None:
             action_mode_enabled,
             auto_trash_promotions,
             auto_trash_social,
-            keep_receipts
+            keep_receipts,
+            blocked_senders,
+            allowed_domains
         )
         VALUES (
             '{test_user_id}',
@@ -85,7 +87,9 @@ def upgrade() -> None:
             false,
             true,
             true,
-            true
+            true,
+            ARRAY[]::TEXT[],
+            ARRAY[]::TEXT[]
         )
         ON CONFLICT (user_id) DO NOTHING;
     """)
