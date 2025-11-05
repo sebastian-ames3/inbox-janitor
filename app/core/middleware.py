@@ -42,11 +42,12 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             )
 
         # Content Security Policy
-        # Note: 'unsafe-inline' is needed for Alpine.js and HTMX inline scripts
+        # Note: 'unsafe-inline' is needed for HTMX inline scripts
+        # Note: 'unsafe-eval' is needed for Alpine.js expression evaluation
         # In production, consider using nonces for better security
         csp_directives = [
             "default-src 'self'",
-            "script-src 'self' 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net",
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://cdn.jsdelivr.net",
             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net",
             "font-src 'self' https://fonts.gstatic.com",
             "img-src 'self' data: https:",
