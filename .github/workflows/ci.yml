@@ -148,6 +148,15 @@ jobs:
       - name: Run database migrations
         env:
           DATABASE_URL: postgresql://postgres:test_password@localhost:5432/inbox_janitor_test
+          REDIS_URL: redis://localhost:6379/0
+          SECRET_KEY: test-secret-key-for-ci-only
+          SESSION_SECRET_KEY: test-session-secret-for-ci
+          ENCRYPTION_KEY: HcoBwK5vUtt7C5EfdSgROpDuCks5nKteDdaeBDY8Trc=
+          GOOGLE_CLIENT_ID: fake-google-client-id
+          GOOGLE_CLIENT_SECRET: fake-google-client-secret
+          OPENAI_API_KEY: fake-openai-key
+          POSTMARK_API_KEY: fake-postmark-key
+          ENVIRONMENT: test
         run: alembic upgrade head
 
       - name: Run Playwright tests
