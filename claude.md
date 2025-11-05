@@ -498,26 +498,51 @@ tests/e2e/
 - [ ] Screenshots/videos captured on failure
 - [ ] Tests run in CI/CD (GitHub Actions)
 
-**Example Test Pattern:**
+**Authentication in E2E Tests:**
+
+E2E tests use Playwright's **setup project pattern** for authentication. A setup script (`tests/e2e/auth.setup.js`) runs FIRST and creates an authenticated session, saving it to `playwright/.auth/user.json`. Tests then opt-in to use this session when needed.
+
+**IMPORTANT: Authentication is opt-in, not default.** Tests must explicitly use the authenticated session:
+
 ```javascript
 const { test, expect } = require('@playwright/test');
 
-test('should submit settings form with HTMX', async ({ page }) => {
-  await page.goto('/dashboard');
+// Authenticated test example
+test.describe('Dashboard Settings', () => {
+  // Opt-in to authentication
+  test.use({ storageState: 'playwright/.auth/user.json' });
 
-  // Modify slider value (Alpine.js interaction)
-  await page.locator('input[name="confidence_auto_threshold"]').fill('0.90');
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/dashboard');
+  });
 
-  // Submit form (HTMX)
-  await page.click('button[type="submit"]');
+  test('should submit settings form with HTMX', async ({ page }) => {
+    // Modify slider value (Alpine.js interaction)
+    await page.locator('input[name="confidence_auto_threshold"]').fill('0.90');
 
-  // Verify success message appears (HTMX partial update)
-  await expect(page.locator('text=Settings saved')).toBeVisible();
+    // Submit form (HTMX)
+    await page.click('button[type="submit"]');
 
-  // Verify no full page reload (HTMX behavior)
-  await expect(page).toHaveURL(/dashboard/);
+    // Verify success message appears (HTMX partial update)
+    await expect(page.locator('text=Settings saved')).toBeVisible();
+
+    // Verify no full page reload (HTMX behavior)
+    await expect(page).toHaveURL(/dashboard/);
+  });
+});
+
+// Unauthenticated test example
+test.describe('Landing Page', () => {
+  // No authentication - runs as anonymous user
+
+  test('should display hero section', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.locator('h1')).toContainText('Inbox Janitor');
+  });
 });
 ```
+
+**See `tests/e2e/README.md` for complete authentication documentation.**
 
 **Accessibility Testing with axe-core:**
 ```javascript
