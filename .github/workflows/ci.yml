@@ -1,0 +1,202 @@
+name: CI/CD Pipeline
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: inbox_janitor_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio pytest-cov bandit
+
+      - name: Run security scan (Bandit)
+        run: |
+          bandit -r app/ -ll || true  # Don't fail on warnings, just report
+
+      - name: Run type checking (mypy)
+        run: |
+          pip install mypy types-requests types-redis
+          mypy app/ --ignore-missing-imports || true  # Don't fail yet
+
+      - name: Run unit and integration tests
+        env:
+          DATABASE_URL: postgresql://postgres:test_password@localhost:5432/inbox_janitor_test
+          REDIS_URL: redis://localhost:6379/0
+          SECRET_KEY: test-secret-key-for-ci-only
+          SESSION_SECRET_KEY: test-session-secret-for-ci
+          ENCRYPTION_KEY: dGVzdC1lbmNyeXB0aW9uLWtleS1mb3ItY2ktb25seS0xMjM0NTY=
+          GOOGLE_CLIENT_ID: fake-google-client-id
+          GOOGLE_CLIENT_SECRET: fake-google-client-secret
+          OPENAI_API_KEY: fake-openai-key
+          POSTMARK_API_KEY: fake-postmark-key
+          ENVIRONMENT: test
+        run: |
+          pytest tests/ \
+            --ignore=tests/e2e \
+            --cov=app \
+            --cov-report=term-missing \
+            --cov-report=xml \
+            -v
+
+      - name: Upload coverage reports
+        uses: codecov/codecov-action@v4
+        if: always()
+        with:
+          files: ./coverage.xml
+          fail_ci_if_error: false
+
+  e2e:
+    name: E2E Tests (Playwright)
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: inbox_janitor_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Python dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium firefox webkit
+
+      - name: Build CSS
+        run: npm run build:css
+
+      - name: Run database migrations
+        env:
+          DATABASE_URL: postgresql://postgres:test_password@localhost:5432/inbox_janitor_test
+        run: alembic upgrade head
+
+      - name: Run Playwright tests
+        env:
+          DATABASE_URL: postgresql://postgres:test_password@localhost:5432/inbox_janitor_test
+          REDIS_URL: redis://localhost:6379/0
+          SECRET_KEY: test-secret-key-for-ci-only
+          SESSION_SECRET_KEY: test-session-secret-for-ci
+          ENCRYPTION_KEY: dGVzdC1lbmNyeXB0aW9uLWtleS1mb3ItY2ktb25seS0xMjM0NTY=
+          GOOGLE_CLIENT_ID: fake-google-client-id
+          GOOGLE_CLIENT_SECRET: fake-google-client-secret
+          OPENAI_API_KEY: fake-openai-key
+          POSTMARK_API_KEY: fake-postmark-key
+          ENVIRONMENT: test
+        run: npm test
+
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+
+  lint:
+    name: Lint and Format
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install linting tools
+        run: |
+          pip install black flake8 isort
+
+      - name: Check code formatting (Black)
+        run: |
+          black --check app/ tests/ || true
+
+      - name: Check import sorting (isort)
+        run: |
+          isort --check-only app/ tests/ || true
+
+      - name: Lint with flake8
+        run: |
+          flake8 app/ tests/ --max-line-length=100 --ignore=E203,W503 || true
