@@ -99,6 +99,13 @@ app.include_router(portal_router)  # No prefix - serves landing page at /
 app.include_router(auth_router)
 app.include_router(webhook_router, prefix="/webhooks", tags=["webhooks"])
 
+# Test-only routes (E2E authentication fixtures)
+# SECURITY: Only available in development/test environments
+if settings.ENVIRONMENT in ["development", "test"]:
+    from app.api.test_routes import router as test_router
+    app.include_router(test_router)
+    print("⚠️  Test routes enabled (NOT for production)")
+
 # TODO: Add remaining routers as they're implemented
 # app.include_router(classifier_router, prefix="/classify", tags=["classifier"])
 
