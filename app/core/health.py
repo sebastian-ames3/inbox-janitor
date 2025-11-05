@@ -17,7 +17,7 @@ from sqlalchemy.exc import OperationalError
 import redis
 
 from app.core.config import settings
-from app.core.database import get_async_session
+from app.core.database import AsyncSessionLocal
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +32,7 @@ async def check_database() -> Dict[str, Any]:
     start_time = datetime.utcnow()
 
     try:
-        async with get_async_session() as session:
+        async with AsyncSessionLocal() as session:
             # Simple query to test connection
             result = await session.execute(text("SELECT 1"))
             result.scalar()
@@ -164,7 +164,7 @@ async def check_last_webhook() -> Dict[str, Any]:
         Dict with status, seconds since last webhook, and warning (if stale)
     """
     try:
-        async with get_async_session() as session:
+        async with AsyncSessionLocal() as session:
             # Query most recent webhook timestamp
             query = text("""
                 SELECT MAX(last_webhook_received_at)
