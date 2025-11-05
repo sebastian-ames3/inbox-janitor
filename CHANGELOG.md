@@ -4,6 +4,118 @@ All notable decisions and changes to the Inbox Janitor project.
 
 ---
 
+## [2025-11-05] - Production Deployment Fixes + CI/CD Pipeline
+
+### ✅ PRODUCTION READY: Landing Page Fixed + Automated Testing
+
+**Summary:** Fixed critical production issues preventing landing page from loading correctly, updated contact email, and implemented GitHub Actions CI/CD pipeline to prevent future deployment issues.
+
+### PR #37: GitHub Actions CI/CD Pipeline ⭐
+
+**What Changed:**
+- ✅ Automated testing on every pull request
+- ✅ 3 CI jobs: Unit/Integration Tests, E2E Tests (Playwright), Lint & Format
+- ✅ ~360 tests run automatically before merge
+- ✅ Security scanning (Bandit) on every PR
+- ✅ Updated CLAUDE.md to mandate CI checks (non-negotiable workflow requirement)
+
+**CI Jobs:**
+1. **Run Tests:** Pytest with PostgreSQL + Redis (unit, integration, security, safety tests)
+2. **E2E Tests:** Playwright on Chrome, Firefox, Safari + mobile
+3. **Lint and Format:** Black, isort, flake8, mypy
+
+**Impact:**
+- Prevents broken code from reaching production
+- All tests must pass before merge is allowed
+- Code coverage tracking via Codecov
+- Security vulnerabilities caught automatically
+
+**Next Step:** Enable branch protection rules to physically block merging failing PRs
+
+### PR #36: Update Support Email
+
+**What Changed:**
+- ✅ Changed contact email from `hello@inboxjanitor.com` to `support@inboxjanitor.com`
+- ✅ Updated in 5 files across 10 locations:
+  - Landing page FAQ section
+  - Footer contact link (all pages)
+  - OAuth error page
+  - Welcome page
+  - Weekly digest email templates (HTML + plain text)
+- ✅ Updated CTA button text: "Connect Your Gmail And Get Started"
+
+**Reason:** Single email configuration - only `support@inboxjanitor.com` exists for the domain
+
+### PR #35: Fix Alpine.js CSP Compatibility
+
+**What Changed:**
+- ✅ Added `'unsafe-eval'` to Content Security Policy `script-src` directive
+
+**Problem Fixed:**
+- Alpine.js was throwing CSP violations on all interactive components
+- Mobile menu, tooltips, modals were broken
+- Console errors: "Evaluating a string as JavaScript violates CSP"
+
+**Why Needed:**
+- Alpine.js evaluates JavaScript expressions in HTML templates (`x-data`, `@click`, `x-show`)
+- Requires `'unsafe-eval'` to function (standard for Alpine.js deployments)
+- Future: Can migrate to Alpine CSP build for stricter security
+
+**Impact:** All interactive UI components now work correctly
+
+### PR #34: Fix Static Files HTTPS Loading ⭐
+
+**What Changed:**
+- ✅ Changed static file references from `url_for()` to relative paths
+- ✅ `/static/css/tailwind.css` instead of `http://...`
+
+**Problem Fixed:**
+- **Critical:** CSS and JavaScript were not loading on production (mixed content error)
+- Browser blocked `http://` resources on `https://` page
+- Landing page appeared completely unstyled (giant checkmarks, no colors, broken layout)
+
+**Root Cause:**
+- FastAPI's `url_for()` generated `http://` URLs behind Railway's reverse proxy
+- Browsers block insecure resources on secure pages
+
+**Impact:** Landing page now renders correctly with full styling
+
+### PR #33: Fix OAuth Redis Error
+
+**What Changed:**
+- ✅ Fixed `None` user_id being passed to Redis session storage
+
+**Problem Fixed:**
+- OAuth callback was failing with Redis errors
+- Session creation was broken
+
+**Impact:** OAuth flow now works correctly end-to-end
+
+### Testing & Verification
+
+**Manual Testing Completed:**
+- ✅ Landing page renders correctly (CSS, layout, colors)
+- ✅ Mobile menu works (hamburger toggle)
+- ✅ All interactive elements functional (Alpine.js)
+- ✅ Email links point to support@inboxjanitor.com
+- ✅ Security headers verified (CSP, HSTS, X-Frame-Options)
+
+**Automated Testing:**
+- ✅ CI/CD pipeline running on all new PRs
+- ✅ ~360 tests passing
+- ✅ E2E tests covering all pages
+
+### Deployment Notes
+
+**Railway Auto-Deployment:**
+- All PRs merged to `main` trigger automatic Railway deployment
+- Deployment process: `pip install` → `alembic upgrade head` → `uvicorn start`
+- Health endpoint verified after each deployment
+
+**Production URL:** https://inbox-janitor-production-03fc.up.railway.app/
+
+---
+
 ## [2025-11-04] - PRD 0002 Complete: Web Portal Foundation + Testing (Task 7.0 Complete)
 
 ### ✅ MILESTONE: PRD 0002 - Task 7.0 (Testing & Security Validation) COMPLETE
