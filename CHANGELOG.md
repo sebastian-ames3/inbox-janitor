@@ -4,6 +4,73 @@ All notable decisions and changes to the Inbox Janitor project.
 
 ---
 
+## [2025-11-04] - Playwright E2E Testing Framework Adopted (PRD 0002 - Task 7.0)
+
+### ✅ Decision: Playwright as Mandatory E2E Testing Framework
+
+**All UI/UX features MUST include Playwright E2E tests before merging.**
+
+### 📋 Why Playwright Over Puppeteer
+- **Multi-browser testing:** Chrome, Firefox, Safari, Mobile Chrome, Mobile Safari (vs Puppeteer's Chrome-only)
+- **Built-in accessibility:** Axe-core integration for WCAG AA compliance testing
+- **Better mobile emulation:** Device presets (Pixel 5, iPhone 12) with accurate viewport/touch
+- **Reliable auto-waiting:** Automatically waits for elements to be actionable
+- **Microsoft-backed:** Long-term support and active development
+- **Better Python integration:** Future compatibility with pytest for backend tests
+
+### 🛠️ What Was Set Up
+1. **Package.json:** Added `@playwright/test` and `@axe-core/playwright` dependencies
+2. **Test Scripts:** `npm test`, `test:headed`, `test:ui`, `test:debug`, `test:report`
+3. **Playwright Config:** Multi-browser projects, auto server startup, screenshot/video on failure
+4. **Example Tests:** `tests/e2e/landing.spec.js` with mobile, accessibility, and keyboard tests
+5. **Gitignore:** Excludes test-results/, playwright-report/, playwright/.cache/
+
+### ✅ MANDATORY for All UI Pull Requests
+- [ ] E2E tests pass on Chrome, Firefox, Safari
+- [ ] Mobile tests pass (375px iPhone SE viewport)
+- [ ] Accessibility scan passes (WCAG AA with axe-core)
+- [ ] Screenshots/videos captured on failure
+- [ ] Tests run in CI/CD (future: GitHub Actions)
+
+### 📁 Test Structure
+```
+tests/
+├── e2e/                    # Playwright E2E tests
+│   ├── landing.spec.js     # Landing page tests
+│   ├── dashboard.spec.js   # Settings dashboard (HTMX forms)
+│   ├── oauth.spec.js       # OAuth flow
+│   ├── account.spec.js     # Account management
+│   └── accessibility.spec.js  # WCAG AA compliance
+├── security/               # Python security tests (existing)
+└── unit/                   # Python unit tests (future)
+```
+
+### 🧪 Test Coverage Required
+**All new UI features need tests for:**
+- Page load and content visibility
+- HTMX form submissions and responses
+- Alpine.js component interactions (dropdowns, modals, sliders)
+- Mobile responsiveness (375px, 768px, 1024px viewports)
+- Keyboard navigation and focus management
+- Screen reader accessibility (ARIA labels, roles, live regions)
+- Cross-browser compatibility (Chrome, Firefox, Safari)
+
+### 📚 Documentation
+See CLAUDE.md "Testing Strategy" section for:
+- Complete Playwright setup guide
+- How to write tests for HTMX and Alpine.js
+- Example test patterns
+- Running tests locally and in CI
+- Debugging failed tests with trace viewer
+
+### 🚀 Next Steps
+- Write E2E tests for existing pages (dashboard, account, audit log)
+- Add GitHub Actions workflow for CI/CD
+- Set up Playwright test reports in PR comments
+- Create visual regression tests for critical UI flows
+
+---
+
 ## [2025-11-04] - Email Processing Pipeline Complete (PR #18)
 
 ### ✅ Completed - Week 1 Core Features
