@@ -82,7 +82,7 @@ class GmailOAuthManager:
         await redis_client.setex(
             f"oauth_state:{state}",
             600,  # 10 minutes
-            user_id
+            str(user_id) if user_id is not None else ""
         )
 
         # Create OAuth2 session
