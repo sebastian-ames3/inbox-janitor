@@ -17,9 +17,6 @@ const { defineConfig, devices } = require('@playwright/test');
 module.exports = defineConfig({
   testDir: './tests/e2e',
 
-  /* TEMPORARY: Testing files one by one to isolate slow test issue */
-  testMatch: ['test-minimal.spec.js', 'landing.spec.js', 'accessibility.spec.js', 'oauth.spec.js', 'dashboard.spec.js', 'account.spec.js', 'audit.spec.js'],
-
   /* Run tests in files in parallel */
   fullyParallel: true,
 
