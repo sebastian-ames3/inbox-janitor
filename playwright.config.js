@@ -55,36 +55,74 @@ module.exports = defineConfig({
   /* Configure projects for major browsers */
   projects: process.env.CI
     ? [
+        // Setup project - runs FIRST to create authenticated session
+        {
+          name: 'setup',
+          testMatch: /.*\.setup\.js/,
+        },
+
         // Only test chromium on CI to speed up builds
         {
           name: 'chromium',
-          use: { ...devices['Desktop Chrome'] },
+          use: {
+            ...devices['Desktop Chrome'],
+            // Use saved authenticated state from setup project
+            storageState: 'playwright/.auth/user.json',
+          },
+          dependencies: ['setup'], // Run setup first
         },
       ]
     : [
+        // Setup project - runs FIRST to create authenticated session
+        {
+          name: 'setup',
+          testMatch: /.*\.setup\.js/,
+        },
+
         {
           name: 'chromium',
-          use: { ...devices['Desktop Chrome'] },
+          use: {
+            ...devices['Desktop Chrome'],
+            // Use saved authenticated state from setup project
+            storageState: 'playwright/.auth/user.json',
+          },
+          dependencies: ['setup'], // Run setup first
         },
 
         {
           name: 'firefox',
-          use: { ...devices['Desktop Firefox'] },
+          use: {
+            ...devices['Desktop Firefox'],
+            storageState: 'playwright/.auth/user.json',
+          },
+          dependencies: ['setup'],
         },
 
         {
           name: 'webkit',
-          use: { ...devices['Desktop Safari'] },
+          use: {
+            ...devices['Desktop Safari'],
+            storageState: 'playwright/.auth/user.json',
+          },
+          dependencies: ['setup'],
         },
 
         /* Test against mobile viewports. */
         {
           name: 'Mobile Chrome',
-          use: { ...devices['Pixel 5'] },
+          use: {
+            ...devices['Pixel 5'],
+            storageState: 'playwright/.auth/user.json',
+          },
+          dependencies: ['setup'],
         },
         {
           name: 'Mobile Safari',
-          use: { ...devices['iPhone 12'] },
+          use: {
+            ...devices['iPhone 12'],
+            storageState: 'playwright/.auth/user.json',
+          },
+          dependencies: ['setup'],
         },
 
         /* Test against branded browsers. */
