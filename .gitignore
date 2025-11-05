@@ -29,5 +29,10 @@ Thumbs.db
 htmlcov/
 .pytest_cache/
 
+# Playwright
+test-results/
+playwright-report/
+playwright/.cache/
+
 # External repositories (cloned for reference)
 ai-dev-tasks/

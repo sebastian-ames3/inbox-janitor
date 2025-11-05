@@ -398,6 +398,118 @@ pytest tests/safety/test_medical_email_safety.py
 pytest tests/safety/test_no_permanent_delete_method.py
 ```
 
+### End-to-End Tests with Playwright (REQUIRED for UI/UX features)
+
+**⚠️ CRITICAL: All UI/UX features MUST have Playwright E2E tests before merging.**
+
+**Why Playwright:**
+- **Multi-browser testing** (Chrome, Firefox, Safari, Mobile Chrome/Safari)
+- **Real user interactions** (clicks, keyboard, form submissions)
+- **Accessibility validation** (axe-core integration for WCAG AA compliance)
+- **Visual regression** (screenshots, videos on failure)
+- **Mobile responsiveness** (test at 375px, 768px, 1024px, 1920px)
+- **HTMX interactions** (async form submissions, partial page updates)
+- **Alpine.js components** (dropdowns, modals, mobile menu)
+- **OAuth flow** (multi-page redirects, session verification)
+
+**Running E2E Tests:**
+```bash
+# Run all tests (headless mode)
+npm test
+
+# Run with browser visible (debugging)
+npm run test:headed
+
+# Run with interactive UI
+npm run test:ui
+
+# Run in debug mode (step through tests)
+npm run test:debug
+
+# View HTML report after tests
+npm run test:report
+```
+
+**Test Structure:**
+```
+tests/e2e/
+├── landing.spec.js          # Landing page (mobile menu, keyboard nav, footer)
+├── auth/
+│   ├── oauth-flow.spec.js   # OAuth flow (login → callback → session)
+│   └── logout.spec.js       # Logout and session clearing
+├── dashboard/
+│   ├── settings.spec.js     # Settings form (HTMX, Alpine.js sliders)
+│   └── mobile.spec.js       # Mobile responsiveness
+├── account/
+│   └── account.spec.js      # Account page (data export, disconnect)
+├── audit/
+│   └── audit-log.spec.js    # Audit log (pagination, search, undo)
+├── accessibility/
+│   └── wcag-aa.spec.js      # WCAG AA compliance (axe-core)
+└── security/
+    ├── csrf.spec.js         # CSRF protection on forms
+    └── xss.spec.js          # XSS prevention (script tag escaping)
+```
+
+**MANDATORY for ALL UI Pull Requests:**
+- [ ] E2E tests pass on Chrome, Firefox, Safari
+- [ ] Mobile tests pass (375px, iPhone SE)
+- [ ] Accessibility scan passes (WCAG AA)
+- [ ] Screenshots/videos captured on failure
+- [ ] Tests run in CI/CD (GitHub Actions)
+
+**Example Test Pattern:**
+```javascript
+const { test, expect } = require('@playwright/test');
+
+test('should submit settings form with HTMX', async ({ page }) => {
+  await page.goto('/dashboard');
+
+  // Modify slider value (Alpine.js interaction)
+  await page.locator('input[name="confidence_auto_threshold"]').fill('0.90');
+
+  // Submit form (HTMX)
+  await page.click('button[type="submit"]');
+
+  // Verify success message appears (HTMX partial update)
+  await expect(page.locator('text=Settings saved')).toBeVisible();
+
+  // Verify no full page reload (HTMX behavior)
+  await expect(page).toHaveURL(/dashboard/);
+});
+```
+
+**Accessibility Testing with axe-core:**
+```javascript
+const { test } = require('@playwright/test');
+const AxeBuilder = require('@axe-core/playwright').default;
+
+test('dashboard meets WCAG AA standards', async ({ page }) => {
+  await page.goto('/dashboard');
+
+  const accessibilityScanResults = await new AxeBuilder({ page }).analyze();
+
+  expect(accessibilityScanResults.violations).toEqual([]);
+});
+```
+
+**When to Write E2E Tests:**
+- **ALL new UI pages** (landing, dashboard, settings, etc.)
+- **ALL form interactions** (login, settings update, search)
+- **ALL HTMX endpoints** (partial page updates)
+- **ALL Alpine.js components** (modals, dropdowns, toggles)
+- **Mobile responsiveness** for every page
+- **Keyboard navigation** for accessibility
+- **OAuth flows** (login, logout, session management)
+
+**Configuration:**
+See `playwright.config.js` for full configuration including:
+- Multi-browser testing (Chromium, Firefox, WebKit)
+- Mobile device emulation (iPhone 12, Pixel 5)
+- Automatic web server startup (Uvicorn)
+- Screenshot/video capture on failure
+- HTML report generation
+
 ### Manual Testing Phases
 
 **Phase 1: Developer (Week 1-2)**
