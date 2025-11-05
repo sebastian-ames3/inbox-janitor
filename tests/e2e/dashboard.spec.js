@@ -254,13 +254,14 @@ test.describe.skip('Dashboard Page', () => {
 });
 
 test.describe('Dashboard - Action Mode Toggle Integration', () => {
+  // Use authenticated state for these tests
+  test.use({ storageState: 'playwright/.auth/user.json' });
+
   test.beforeEach(async ({ page }) => {
     await page.goto('/dashboard');
   });
 
-  test.skip('should toggle between sandbox and action mode', async ({ page }) => {
-    // SKIPPED: Requires authentication to access /dashboard
-    // Without valid session, returns 401 and page doesn't render
+  test('should toggle between sandbox and action mode', async ({ page }) => {
     const sandboxRadio = page.locator('input[name="action_mode"][value="false"]');
     const actionRadio = page.locator('input[name="action_mode"][value="true"]');
 
@@ -280,8 +281,7 @@ test.describe('Dashboard - Action Mode Toggle Integration', () => {
     await expect(sandboxRadio).not.toBeChecked();
   });
 
-  test.skip('should show different visual states for selected mode', async ({ page }) => {
-    // SKIPPED: Requires authentication to access /dashboard
+  test('should show different visual states for selected mode', async ({ page }) => {
     const sandboxRadio = page.locator('input[name="action_mode"][value="false"]');
     const actionRadio = page.locator('input[name="action_mode"][value="true"]');
 
@@ -307,13 +307,14 @@ test.describe('Dashboard - Action Mode Toggle Integration', () => {
 });
 
 test.describe('Dashboard - Tooltips', () => {
+  // Use authenticated state for these tests
+  test.use({ storageState: 'playwright/.auth/user.json' });
+
   test.beforeEach(async ({ page }) => {
     await page.goto('/dashboard');
   });
 
-  test.skip('should close tooltip on click away', async ({ page }) => {
-    // SKIPPED: Requires authentication to access /dashboard
-    // Also looking for help button UI that doesn't exist yet
+  test('should close tooltip on click away', async ({ page }) => {
     const helpButton = page.locator('button[aria-label="Help"]').first();
 
     // Open tooltip
@@ -331,9 +332,7 @@ test.describe('Dashboard - Tooltips', () => {
     await expect(tooltip).not.toBeVisible();
   });
 
-  test.skip('should have close button in tooltip', async ({ page }) => {
-    // SKIPPED: Requires authentication to access /dashboard
-    // Also looking for help button UI that doesn't exist yet
+  test('should have close button in tooltip', async ({ page }) => {
     const helpButton = page.locator('button[aria-label="Help"]').first();
 
     // Open tooltip
