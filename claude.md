@@ -6,6 +6,26 @@
 
 ---
 
+## 📍 Project Status
+
+**✅ Recently Completed:**
+- PRD 0001: Email Processing Pipeline (PR #18)
+- PRD 0002: Web Portal Foundation + Testing (PRs #19-29)
+- OAuth & Railway Deployment (PRs #10-14)
+
+**🚀 Current Milestone:** Ready for Production Testing
+- [ ] Deploy to Railway production
+- [ ] Manual testing checklist (docs/TESTING.md)
+- [ ] Email templates (Postmark integration)
+
+**⏭️ Next Up:**
+- PRD 0003: Action Execution Engine (archive/trash, quarantine, undo)
+- OR: Stripe billing integration
+
+**📚 Full History:** See [CHANGELOG.md](CHANGELOG.md) for detailed completion records.
+
+---
+
 ## ⚡ START HERE - Required Workflows ⚡
 
 **BEFORE starting ANY new feature or fix, follow these workflows:**
@@ -314,63 +334,65 @@ link = f"https://app.inboxjanitor.com/a/{token}"
 
 ## Feature Roadmap
 
+**Note:** This is the original vision/plan for reference. See **"Project Status"** section above and [CHANGELOG.md](CHANGELOG.md) for actual completion status.
+
 ### MVP (Weeks 1-6): First Paying Customer
 
 **Week 1-2: Foundation**
-- [ ] OAuth flow (Gmail only, Authlib)
-- [ ] PostgreSQL schema (users, mailboxes, email_actions, audit_log)
-- [ ] Gmail watch + Pub/Sub webhook receiver
-- [ ] Celery + Redis queue setup
-- [ ] Token encryption (Fernet, env vars)
-- [ ] Basic email templates (Postmark)
+- OAuth flow (Gmail only, Authlib)
+- PostgreSQL schema (users, mailboxes, email_actions, audit_log)
+- Gmail watch + Pub/Sub webhook receiver
+- Celery + Redis queue setup
+- Token encryption (Fernet, env vars)
+- Basic email templates (Postmark)
 
 **Week 3: Backlog Cleanup (Mom's Feature)**
-- [ ] Backlog analysis (count old emails by category)
-- [ ] User-controlled batch cleanup (magic links)
-- [ ] Progress emails during cleanup
-- [ ] Rate limiting (10 emails/min/user)
+- Backlog analysis (count old emails by category)
+- User-controlled batch cleanup (magic links)
+- Progress emails during cleanup
+- Rate limiting (10 emails/min/user)
 
 **Week 4: Classification**
-- [ ] Metadata extraction (Gmail category, headers, sender analysis)
-- [ ] Enhanced AI prompt (delete vs archive distinction)
-- [ ] Conservative safety rails (starred, contacts, critical keywords)
-- [ ] Logging for learning
+- Metadata extraction (Gmail category, headers, sender analysis)
+- Enhanced AI prompt (delete vs archive distinction)
+- Conservative safety rails (starred, contacts, critical keywords)
+- Logging for learning
 
 **Week 5: Action Mode + Safety**
-- [ ] Archive/trash execution (Gmail API)
-- [ ] 7-day quarantine (Janitor/Quarantine label)
-- [ ] 30-day undo flow (restore from quarantine)
-- [ ] Emergency stop (email stop@inboxjanitor.app)
+- Archive/trash execution (Gmail API)
+- 7-day quarantine (Janitor/Quarantine label)
+- 30-day undo flow (restore from quarantine)
+- Emergency stop (email stop@inboxjanitor.app)
 
 **Week 6: Billing + Polish**
-- [ ] Stripe Checkout (hosted)
-- [ ] Subscription webhooks
-- [ ] Weekly digest email (summary, borderline cases, undo)
-- [ ] Settings web portal (3 pages: landing, settings, account)
-- [ ] Test with mom + sister
+- Stripe Checkout (hosted)
+- Subscription webhooks
+- Weekly digest email (summary, borderline cases, undo)
+- Settings web portal (3 pages: landing, settings, account)
+- Test with mom + sister
 
 **Success Metric:** 1-2 paying customers at $6/mo
 
 ### V1 (Weeks 7-12): Scale to 100 Users
 
-- [ ] Microsoft 365 integration (OAuth + webhooks)
-- [ ] Reply-to-configure commands (parse email replies)
-- [ ] User rules (block/allow lists, per-sender actions)
-- [ ] Daily action receipts (optional)
-- [ ] Confidence threshold tuning (sliders in web portal)
-- [ ] Multi-account support (connect 2+ Gmail accounts)
-- [ ] Adaptive learning (improve from undo actions)
+- Microsoft 365 integration (OAuth + webhooks)
+- Reply-to-configure commands (parse email replies)
+- User rules (block/allow lists, per-sender actions)
+- Daily action receipts (optional)
+- Confidence threshold tuning (sliders in web portal)
+- Multi-account support (connect 2+ Gmail accounts)
+- Adaptive learning (improve from undo actions)
 
 **Success Metric:** 100 paying customers, $600-1200 MRR
 
 ### V2 (Months 4-6): Advanced Features
 
-- [ ] Team features (shared policies, admin oversight)
-- [ ] Slack integration (critical email alerts)
-- [ ] Follow-up detection ("No reply in 7 days")
-- [ ] Thread summarization (long email chains)
-- [ ] Mobile app (iOS first, push notifications)
-- [ ] Advanced analytics (visual dashboard)
+- Team features (shared policies, admin oversight)
+- Slack integration (critical email alerts)
+- Follow-up detection ("No reply in 7 days")
+- Thread summarization (long email chains)
+- Mobile app (iOS first, push notifications)
+- Advanced analytics (visual dashboard)
 
 **Success Metric:** 500 users, $6K MRR
 
