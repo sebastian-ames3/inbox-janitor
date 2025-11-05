@@ -327,26 +327,26 @@ class TestSafetyRailsFunction:
 
 
 class TestHasExceptionKeyword:
-    """Test the has_exception_keyword helper function."""
+    """Test the check_exception_keywords helper function."""
 
     def test_detects_keyword_in_subject(self):
         """Test that exception keywords are detected in subject."""
-        assert has_exception_keyword("Your receipt for order #123", None) == True
-        assert has_exception_keyword("Invoice attached", None) == True
-        assert has_exception_keyword("Interview invitation", None) == True
+        assert check_exception_keywords("Your receipt for order #123", None) == True
+        assert check_exception_keywords("Invoice attached", None) == True
+        assert check_exception_keywords("Interview invitation", None) == True
 
     def test_detects_keyword_in_snippet(self):
         """Test that exception keywords are detected in snippet."""
-        assert has_exception_keyword(None, "Your password reset link") == True
-        assert has_exception_keyword(None, "Medical appointment scheduled") == True
+        assert check_exception_keywords(None, "Your password reset link") == True
+        assert check_exception_keywords(None, "Medical appointment scheduled") == True
 
     def test_case_insensitive(self):
         """Test that keyword detection is case-insensitive."""
-        assert has_exception_keyword("RECEIPT for purchase", None) == True
-        assert has_exception_keyword("Receipt for purchase", None) == True
-        assert has_exception_keyword("receipt for purchase", None) == True
+        assert check_exception_keywords("RECEIPT for purchase", None) == True
+        assert check_exception_keywords("Receipt for purchase", None) == True
+        assert check_exception_keywords("receipt for purchase", None) == True
 
     def test_no_false_positives(self):
         """Test that normal words don't trigger exception."""
-        assert has_exception_keyword("Check out our sale!", "Limited time offer") == False
-        assert has_exception_keyword("Newsletter #123", "Latest news") == False
+        assert check_exception_keywords("Check out our sale!", "Limited time offer") == False
+        assert check_exception_keywords("Newsletter #123", "Latest news") == False
