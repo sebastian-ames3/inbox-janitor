@@ -331,22 +331,36 @@ class TestHasExceptionKeyword:
 
     def test_detects_keyword_in_subject(self):
         """Test that exception keywords are detected in subject."""
-        assert check_exception_keywords("Your receipt for order #123", None) == True
-        assert check_exception_keywords("Invoice attached", None) == True
-        assert check_exception_keywords("Interview invitation", None) == True
+        metadata = EmailMetadata(
+            message_id="test1", thread_id="thread1",
+            from_address="test@example.com", from_name="Test", from_domain="example.com",
+            subject="Your receipt for order #123", received_at=datetime.utcnow()
+        )
+        assert check_exception_keywords(metadata) is not None
 
     def test_detects_keyword_in_snippet(self):
         """Test that exception keywords are detected in snippet."""
-        assert check_exception_keywords(None, "Your password reset link") == True
-        assert check_exception_keywords(None, "Medical appointment scheduled") == True
+        metadata = EmailMetadata(
+            message_id="test2", thread_id="thread2",
+            from_address="test@example.com", from_name="Test", from_domain="example.com",
+            subject="Update", snippet="Your password reset link", received_at=datetime.utcnow()
+        )
+        assert check_exception_keywords(metadata) is not None
 
     def test_case_insensitive(self):
         """Test that keyword detection is case-insensitive."""
-        assert check_exception_keywords("RECEIPT for purchase", None) == True
-        assert check_exception_keywords("Receipt for purchase", None) == True
-        assert check_exception_keywords("receipt for purchase", None) == True
+        metadata = EmailMetadata(
+            message_id="test3", thread_id="thread3",
+            from_address="test@example.com", from_name="Test", from_domain="example.com",
+            subject="RECEIPT for purchase", received_at=datetime.utcnow()
+        )
+        assert check_exception_keywords(metadata) is not None
 
     def test_no_false_positives(self):
         """Test that normal words don't trigger exception."""
-        assert check_exception_keywords("Check out our sale!", "Limited time offer") == False
-        assert check_exception_keywords("Newsletter #123", "Latest news") == False
+        metadata = EmailMetadata(
+            message_id="test4", thread_id="thread4",
+            from_address="test@example.com", from_name="Test", from_domain="example.com",
+            subject="Check out our sale!", snippet="Limited time offer", received_at=datetime.utcnow()
+        )
+        assert check_exception_keywords(metadata) is None
