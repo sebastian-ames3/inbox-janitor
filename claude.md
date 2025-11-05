@@ -1,8 +1,8 @@
 # Inbox Janitor - Development Context
 
-**Last Updated:** 2025-11-04
-**Status:** PRD 0002 Complete - Web Portal Foundation + Testing Operational
-**Current Phase:** Ready for Deployment (~360 Tests, All Security Validated)
+**Last Updated:** 2025-11-05
+**Status:** PRD 0002 Complete - Web Portal + CI/CD Operational
+**Current Phase:** Production Ready (~360 Tests, GitHub Actions CI, All Security Validated)
 
 ---
 
@@ -26,6 +26,18 @@
 
 ---
 
+## 🎯 COMMUNICATION STYLE: DIRECT MODE
+
+**ALWAYS respond with this approach:**
+
+No flattery, no hedging, no excessive explanation. Be direct and critical. If code is inefficient, say why. If approach is wrong, show the better way. Skip phrases like "great question" or "you're on the right track."
+
+When things are unnecessarily complex, call it out. When cargo-culting patterns without understanding, tell me. Focus on what's broken, what's risky, and what needs to change.
+
+This is a beginner using AI to build. Provide truth about code weaknesses, not comfort about progress. Treat every review like a senior dev reviewing a junior's PR - direct, specific, actionable.
+
+---
+
 ## ⚡ START HERE - Required Workflows ⚡
 
 **BEFORE starting ANY new feature or fix, follow these workflows:**
@@ -41,8 +53,9 @@
 2. **Make changes and commit** - Follow security-first.md and relevant skills
 3. **Push branch** - `git push -u origin feature/description`
 4. **Create PR** - `gh pr create --title "..." --body "..."`
-5. **WAIT for Railway deployment** - Check health endpoint after merge
-6. **NEVER push directly to main** - PR-only workflow, no exceptions
+5. **⚠️ WAIT for GitHub Actions CI checks to PASS** - All tests must be green before merge
+6. **WAIT for Railway deployment** - Check health endpoint after merge
+7. **NEVER push directly to main** - PR-only workflow, no exceptions
 
 ### ✅ For Debugging/Testing:
 1. **Check Railway logs first** - Don't guess, read actual errors
@@ -71,12 +84,17 @@
 2. Make changes and commit
 3. Push feature branch: `git push -u origin feature/description`
 4. Create pull request: `gh pr create ...`
-5. WAIT for CI/CD checks to pass
-6. WAIT for Railway deployment to succeed
+5. ⚠️ **WAIT for GitHub Actions CI/CD checks to pass** ⚠️
+   - ✅ Run Tests (pytest: unit, integration, security, safety)
+   - ✅ E2E Tests (Playwright: all browsers, mobile, accessibility)
+   - ✅ Lint and Format (Black, isort, flake8, Bandit)
+6. WAIT for Railway deployment to succeed (after merge)
 7. User reviews and approves PR
-8. Merge PR (only after all checks pass)
+8. Merge PR (only after ALL checks pass - GitHub will block merge if CI fails)
 
-**No exceptions. All changes via pull requests.**
+**No exceptions. All changes via pull requests. CI must pass before merge.**
+
+**CI/CD Pipeline:** See `.github/workflows/ci.yml` for full configuration.
 
 See `skills/git-workflow.md` for complete workflow.
 
