@@ -43,14 +43,9 @@ test('authenticate as test user', async ({ page }) => {
 
   console.log('✓ Session created successfully');
 
-  // Step 2: Navigate to page to ensure cookies are set in browser context
-  // The POST request above set the session cookie, but we need to navigate
-  // to a page for the browser to register it
-  await page.goto('/');
-
-  console.log('✓ Navigated to homepage to register cookies');
-
-  // Step 3: Verify authentication works by visiting protected page
+  // Step 2: Verify authentication works by visiting protected page
+  // We skip the homepage (/) and go directly to /dashboard to avoid
+  // any redirect loops that might occur with authenticated users on landing page
   console.log('Verifying authentication by visiting /dashboard...');
 
   const dashboardResponse = await page.goto('/dashboard');
