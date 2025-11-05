@@ -11,10 +11,8 @@ from uuid import UUID
 from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel
 
-from app.core.config import get_settings
+from app.core.config import settings
 from app.core.session import set_session_user_id
-
-settings = get_settings()
 
 # Router for test-only endpoints
 router = APIRouter(prefix="/api/test", tags=["test"])
