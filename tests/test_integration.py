@@ -116,6 +116,10 @@ class TestClassificationEngine:
         from app.models.email_metadata import EmailMetadata
         from app.modules.classifier.tier1 import classify_email_tier1
         from app.models.classification import ClassificationAction
+        from datetime import timedelta
+
+        # Use email from 7 days ago (avoid recent email safety rail)
+        old_date = datetime.utcnow() - timedelta(days=7)
 
         metadata = EmailMetadata(
             message_id="msg_promo",
@@ -130,7 +134,7 @@ class TestClassificationEngine:
             headers={
                 "List-Unsubscribe": "<mailto:unsubscribe@example.com>"
             },
-            received_at=datetime.utcnow(),
+            received_at=old_date,
         )
 
         result = classify_email_tier1(metadata)
