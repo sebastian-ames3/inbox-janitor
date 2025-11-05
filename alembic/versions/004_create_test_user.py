@@ -59,7 +59,7 @@ def upgrade() -> None:
             'test-user-e2e@inboxjanitor.com',
             'ENCRYPTED_TEST_ACCESS_TOKEN',
             'ENCRYPTED_TEST_REFRESH_TOKEN',
-            false,
+            true,
             '{now.isoformat()}'
         )
         ON CONFLICT (id) DO NOTHING;
