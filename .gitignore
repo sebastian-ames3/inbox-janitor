@@ -18,7 +18,7 @@ ENV/
 
 # Node.js
 node_modules/
-package-lock.json
+# package-lock.json  # Now tracked for GitHub Actions npm cache
 
 # OS
 .DS_Store
