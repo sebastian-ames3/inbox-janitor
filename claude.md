@@ -1,8 +1,8 @@
 # Inbox Janitor - Development Context
 
-**Last Updated:** 2025-11-04
-**Status:** PRD 0002 Complete - Web Portal Foundation + Testing Operational
-**Current Phase:** Ready for Deployment (~360 Tests, All Security Validated)
+**Last Updated:** 2025-11-05
+**Status:** PRD 0002 Complete - Web Portal + CI/CD Operational
+**Current Phase:** Production Ready (~360 Tests, GitHub Actions CI, All Security Validated)
 
 ---
 
@@ -41,8 +41,9 @@
 2. **Make changes and commit** - Follow security-first.md and relevant skills
 3. **Push branch** - `git push -u origin feature/description`
 4. **Create PR** - `gh pr create --title "..." --body "..."`
-5. **WAIT for Railway deployment** - Check health endpoint after merge
-6. **NEVER push directly to main** - PR-only workflow, no exceptions
+5. **⚠️ WAIT for GitHub Actions CI checks to PASS** - All tests must be green before merge
+6. **WAIT for Railway deployment** - Check health endpoint after merge
+7. **NEVER push directly to main** - PR-only workflow, no exceptions
 
 ### ✅ For Debugging/Testing:
 1. **Check Railway logs first** - Don't guess, read actual errors
@@ -71,12 +72,17 @@
 2. Make changes and commit
 3. Push feature branch: `git push -u origin feature/description`
 4. Create pull request: `gh pr create ...`
-5. WAIT for CI/CD checks to pass
-6. WAIT for Railway deployment to succeed
+5. ⚠️ **WAIT for GitHub Actions CI/CD checks to pass** ⚠️
+   - ✅ Run Tests (pytest: unit, integration, security, safety)
+   - ✅ E2E Tests (Playwright: all browsers, mobile, accessibility)
+   - ✅ Lint and Format (Black, isort, flake8, Bandit)
+6. WAIT for Railway deployment to succeed (after merge)
 7. User reviews and approves PR
-8. Merge PR (only after all checks pass)
+8. Merge PR (only after ALL checks pass - GitHub will block merge if CI fails)
 
-**No exceptions. All changes via pull requests.**
+**No exceptions. All changes via pull requests. CI must pass before merge.**
+
+**CI/CD Pipeline:** See `.github/workflows/ci.yml` for full configuration.
 
 See `skills/git-workflow.md` for complete workflow.
 
