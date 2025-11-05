@@ -224,12 +224,14 @@ test.describe.skip('Account Page', () => {
 });
 
 test.describe('Account Page - Data Export', () => {
+  // Use authenticated state for these tests
+  test.use({ storageState: 'playwright/.auth/user.json' });
+
   test.beforeEach(async ({ page }) => {
     await page.goto('/account');
   });
 
-  test.skip('should show loading state during export', async ({ page }) => {
-    // SKIPPED: Requires authentication to access /account
+  test('should show loading state during export', async ({ page }) => {
     const exportButton = page.locator('button:has-text("Download")').first();
 
     // Click export
@@ -240,8 +242,7 @@ test.describe('Account Page - Data Export', () => {
     // await expect(exportButton).toBeDisabled();
   });
 
-  test.skip('should show success message after export', async ({ page }) => {
-    // SKIPPED: Requires authentication to access /account
+  test('should show success message after export', async ({ page }) => {
     const exportButton = page.locator('button:has-text("Download")').first();
 
     await exportButton.click();
@@ -255,12 +256,14 @@ test.describe('Account Page - Data Export', () => {
 });
 
 test.describe('Account Page - Billing Section', () => {
+  // Use authenticated state for these tests
+  test.use({ storageState: 'playwright/.auth/user.json' });
+
   test.beforeEach(async ({ page }) => {
     await page.goto('/account');
   });
 
-  test.skip('should show beta program notice', async ({ page }) => {
-    // SKIPPED: Requires authentication to access /account
+  test('should show beta program notice', async ({ page }) => {
     // Beta users should see notice about billing
     await expect(page.locator('text=/beta.*program/i')).toBeVisible();
     await expect(page.locator('text=/billing.*enabled/i')).toBeVisible();
@@ -280,6 +283,9 @@ test.describe('Account Page - Billing Section', () => {
 });
 
 test.describe('Account Page - Security', () => {
+  // Use authenticated state for tests that require it
+  test.use({ storageState: 'playwright/.auth/user.json' });
+
   test.beforeEach(async ({ page }) => {
     await page.goto('/account');
   });
@@ -296,8 +302,7 @@ test.describe('Account Page - Security', () => {
     expect(pageContent).not.toMatch(/ENCRYPTION_KEY|FERNET|SECRET_KEY/i);
   });
 
-  test.skip('should have CSRF token for delete action', async ({ page }) => {
-    // SKIPPED: Requires authentication to access /account
+  test('should have CSRF token for delete action', async ({ page }) => {
     const deleteButton = page.locator('button:has-text("Delete")').first();
 
     // Open confirmation modal
