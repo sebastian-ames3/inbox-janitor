@@ -18,12 +18,13 @@ from datetime import datetime
 from app.models.email_metadata import EmailMetadata
 from app.modules.classifier.signals import (
     signal_gmail_category,
-    signal_unsubscribe_header,
-    signal_bulk_mail_headers,
-    signal_marketing_domain,
+    signal_list_unsubscribe,
+    signal_bulk_headers,
+    signal_sender_domain,
     signal_subject_patterns,
-    signal_sender_engagement,
-    signal_recent_email,
+    signal_starred_or_important,
+    signal_receipt_indicators,
+    calculate_all_signals,
 )
 from app.models.classification import ClassificationSignal
 

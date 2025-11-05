@@ -20,7 +20,7 @@ from app.models.classification import ClassificationAction
 from app.modules.classifier.safety_rails import (
     apply_safety_rails,
     EXCEPTION_KEYWORDS,
-    has_exception_keyword,
+    check_exception_keywords,
 )
 from app.modules.classifier.tier1 import classify_email_tier1
 
