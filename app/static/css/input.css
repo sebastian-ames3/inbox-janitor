@@ -60,16 +60,33 @@
     @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
   }
 
-  .badge-trash {
-    @apply bg-danger-100 text-danger-800;
+  .badge-primary {
+    @apply bg-primary-100 text-primary-800;
   }
 
-  .badge-archive {
+  .badge-success {
+    @apply bg-success-100 text-success-800;
+  }
+
+  .badge-warning {
     @apply bg-warning-100 text-warning-800;
   }
 
+  .badge-danger {
+    @apply bg-danger-100 text-danger-800;
+  }
+
+  /* Action-specific badges */
+  .badge-trash {
+    @apply badge-danger;
+  }
+
+  .badge-archive {
+    @apply badge-warning;
+  }
+
   .badge-keep {
-    @apply bg-success-100 text-success-800;
+    @apply badge-success;
   }
 
   .badge-review {
@@ -84,6 +101,16 @@
   /* Link Styles */
   .link {
     @apply text-primary-600 hover:text-primary-700 hover:underline focus-ring rounded;
+  }
+
+  /* Form Input Styles */
+  .form-input, .form-select, .form-textarea {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:border-primary-500;
+  }
+
+  /* Interactive elements with proper touch targets */
+  .btn, button, a {
+    @apply focus-visible:outline-none;
   }
 }
 
