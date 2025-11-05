@@ -3,6 +3,7 @@
 This module provides CSRF protection, rate limiting, and security headers.
 """
 
+import re
 from typing import Callable
 
 from fastapi import FastAPI, Request, Response
@@ -81,9 +82,11 @@ def configure_csrf(app: FastAPI) -> None:
         # Header name that client must send
         header_name="X-CSRF-Token",
         # Exempt certain endpoints (e.g., webhooks from external services)
+        # Note: starlette_csrf requires compiled regex patterns, not strings
         exempt_urls=[
-            "/health",
-            "/webhooks/gmail",  # Gmail Pub/Sub webhook
+            re.compile(r"^/health$"),
+            re.compile(r"^/webhooks/gmail$"),  # Gmail Pub/Sub webhook
+            re.compile(r"^/api/test/.*$"),  # Test-only endpoints (E2E auth)
         ],
     )
 

@@ -55,36 +55,58 @@ module.exports = defineConfig({
   /* Configure projects for major browsers */
   projects: process.env.CI
     ? [
+        // Setup project - runs FIRST to create authenticated session
+        // This creates playwright/.auth/user.json for tests that need authentication
+        {
+          name: 'setup',
+          testMatch: /.*\.setup\.js/,
+        },
+
         // Only test chromium on CI to speed up builds
+        // Note: storageState is NOT set here - tests opt-in to authentication
+        // by importing and using the auth fixture when needed
         {
           name: 'chromium',
           use: { ...devices['Desktop Chrome'] },
+          dependencies: ['setup'], // Run setup first
         },
       ]
     : [
+        // Setup project - runs FIRST to create authenticated session
+        // This creates playwright/.auth/user.json for tests that need authentication
+        {
+          name: 'setup',
+          testMatch: /.*\.setup\.js/,
+        },
+
         {
           name: 'chromium',
           use: { ...devices['Desktop Chrome'] },
+          dependencies: ['setup'],
         },
 
         {
           name: 'firefox',
           use: { ...devices['Desktop Firefox'] },
+          dependencies: ['setup'],
         },
 
         {
           name: 'webkit',
           use: { ...devices['Desktop Safari'] },
+          dependencies: ['setup'],
         },
 
         /* Test against mobile viewports. */
         {
           name: 'Mobile Chrome',
           use: { ...devices['Pixel 5'] },
+          dependencies: ['setup'],
         },
         {
           name: 'Mobile Safari',
           use: { ...devices['iPhone 12'] },
+          dependencies: ['setup'],
         },
 
         /* Test against branded browsers. */

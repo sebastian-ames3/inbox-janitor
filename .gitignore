@@ -33,6 +33,7 @@ htmlcov/
 test-results/
 playwright-report/
 playwright/.cache/
+playwright/.auth/  # Authentication state (contains session cookies)
 
 # External repositories (cloned for reference)
 ai-dev-tasks/
