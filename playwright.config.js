@@ -18,7 +18,7 @@ module.exports = defineConfig({
   testDir: './tests/e2e',
 
   /* TEMPORARY: Testing files one by one to isolate slow test issue */
-  testMatch: ['test-minimal.spec.js', 'landing.spec.js', 'accessibility.spec.js'],
+  testMatch: ['test-minimal.spec.js', 'landing.spec.js', 'accessibility.spec.js', 'oauth.spec.js'],
 
   /* Run tests in files in parallel */
   fullyParallel: true,
