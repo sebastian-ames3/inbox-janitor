@@ -126,12 +126,13 @@ class TestCheckRateLimit:
     @pytest.mark.asyncio
     async def test_sliding_window_exceeds_limit(self, rate_limiter, mock_redis):
         """Test sliding window detects limit exceeded."""
-        # Setup - previous window has 40 units, current has 20
-        mock_redis.get.side_effect = ["20", "40"]
+        # Setup - Use high values that exceed limit regardless of weight
+        # At any second: weighted_count = (previous * (1 - weight)) + current
+        # Worst case (weight=1): (0 * 0) + 50 = 50, adding 5 = 55 > 50 ✓
+        # Best case (weight=0): (50 * 1) + 50 = 100, adding 5 = 105 > 50 ✓
+        mock_redis.get.side_effect = ["50", "50"]
 
-        # Execute (at 0 seconds into minute, weight = 0.0)
-        # weighted_count = (40 * 1.0) + 20 = 60
-        # Adding 5 more = 65, which exceeds limit (50)
+        # Execute - Should exceed limit regardless of current second
         result = await rate_limiter.check_rate_limit(
             user_id="user-123",
             quota_units=5
