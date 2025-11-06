@@ -164,17 +164,19 @@ class TestAISecurityCheck:
     def test_verify_no_body_in_prompt_too_long_snippet(self):
         """Test that security check fails if snippet is too long."""
         # Manually create metadata with long snippet (bypassing validator for test)
-        metadata = EmailMetadata.__new__(EmailMetadata)
-        metadata.message_id = "test"
-        metadata.thread_id = "test"
-        metadata.from_address = "test@example.com"
-        metadata.from_domain = "example.com"
-        metadata.subject = "Test"
-        metadata.snippet = "A" * 500  # 500 chars (too long)
-        metadata.gmail_labels = []
-        metadata.gmail_category = "personal"
-        metadata.headers = {}
-        metadata.received_at = datetime.utcnow()
+        # Use model_construct() to bypass Pydantic validators (works in v1 and v2)
+        metadata = EmailMetadata.model_construct(
+            message_id="test",
+            thread_id="test",
+            from_address="test@example.com",
+            from_domain="example.com",
+            subject="Test",
+            snippet="A" * 500,  # 500 chars (too long)
+            gmail_labels=[],
+            gmail_category="personal",
+            headers={},
+            received_at=datetime.utcnow()
+        )
 
         classifier = OpenAIClassifier()
         is_safe = classifier.verify_no_body_in_prompt(metadata)

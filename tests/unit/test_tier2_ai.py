@@ -116,7 +116,7 @@ class TestRedisCaching:
     @pytest.mark.asyncio
     async def test_cache_miss_returns_none(self):
         """Test that cache miss returns None."""
-        with patch('app.modules.classifier.tier2_ai.redis.from_url') as mock_redis:
+        with patch('redis.asyncio.from_url') as mock_redis:
             mock_client = AsyncMock()
             mock_client.get = AsyncMock(return_value=None)
             mock_redis.return_value = mock_client
@@ -137,7 +137,7 @@ class TestRedisCaching:
             "reason": "Promotional email"
         }
 
-        with patch('app.modules.classifier.tier2_ai.redis.from_url') as mock_redis:
+        with patch('redis.asyncio.from_url') as mock_redis:
             mock_client = AsyncMock()
             mock_client.get = AsyncMock(return_value=json.dumps(cached_data))
             mock_redis.return_value = mock_client
@@ -151,7 +151,7 @@ class TestRedisCaching:
     @pytest.mark.asyncio
     async def test_set_cached_classification(self):
         """Test setting cached classification."""
-        with patch('app.modules.classifier.tier2_ai.redis.from_url') as mock_redis:
+        with patch('redis.asyncio.from_url') as mock_redis:
             mock_client = AsyncMock()
             mock_redis.return_value = mock_client
 
@@ -259,7 +259,7 @@ class TestAIClassification:
             "error": "api_error"
         }
 
-        with patch('app.modules.classifier.tier2_ai.redis.from_url') as mock_redis:
+        with patch('redis.asyncio.from_url') as mock_redis:
             # Mock Redis cache miss
             mock_client = AsyncMock()
             mock_client.get = AsyncMock(return_value=None)
