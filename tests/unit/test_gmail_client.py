@@ -537,6 +537,6 @@ class TestErrorHandling:
         mock_service.users().messages().get().execute.side_effect = create_http_error(404, "Not Found")
 
         # Execute & Verify
-        client = GmailClient(mock_mailbox, max_retries=1)
+        client = GmailClient(mock_mailbox, rate_limiter=mock_rate_limiter, max_retries=1)
         with pytest.raises(GmailAPIError, match="Resource not found"):
             client.get_message(message_id="nonexistent")
