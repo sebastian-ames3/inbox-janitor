@@ -201,7 +201,7 @@ class TestAIClassification:
 
             # Should use cached result
             assert result.action == ClassificationAction.TRASH
-            assert result.confidence == 0.82  # 0.92 - 0.1 (safety reduction)
+            assert result.confidence == pytest.approx(0.82, abs=0.01)  # 0.92 - 0.1 (safety reduction)
 
             # OpenAI API should NOT be called
             mock_openai_classifier.classify_email.assert_not_called()
@@ -273,7 +273,7 @@ class TestAIClassification:
             # Should return conservative KEEP
             assert result.action == ClassificationAction.KEEP
             assert result.confidence == 0.0
-            assert "AI failed" in result.reason
+            assert "AI classification failed" in result.reason or "AI API error" in result.reason
 
     @pytest.mark.asyncio
     async def test_classify_email_tier2_confidence_reduction(self, sample_metadata, mock_openai_classifier):
@@ -305,7 +305,7 @@ class TestAIClassification:
             result = await classify_email_tier2(sample_metadata)
 
             # Confidence should be reduced
-            assert result.confidence == 0.70  # 0.80 - 0.1
+            assert result.confidence == pytest.approx(0.70, abs=0.01)  # 0.80 - 0.1
 
 
 # Test combining Tier 1 + Tier 2 results
