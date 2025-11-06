@@ -7,6 +7,7 @@ Endpoints:
 - POST /auth/disconnect - Disconnect mailbox
 """
 
+import logging
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -20,6 +21,7 @@ from app.core.session import regenerate_session, set_session_user_id, clear_sess
 from app.models import User, Mailbox, UserSettings
 from app.modules.auth.gmail_oauth import gmail_oauth
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/auth", tags=["authentication"])
 
 
@@ -193,9 +195,15 @@ async def google_oauth_callback(
 
         await db.commit()
 
-        # TODO: Set up Gmail watch (Week 1 - later task)
-        # from app.modules.ingest.gmail_watch import setup_gmail_watch
-        # await setup_gmail_watch(mailbox.id)
+        # Set up Gmail watch for push notifications
+        try:
+            from app.modules.ingest.gmail_watch import register_gmail_watch
+            watch_data = await register_gmail_watch(mailbox.id)
+            logger.info(f"Gmail watch registered for {mailbox.email_address}, expires at {watch_data.get('expiration')}")
+        except Exception as watch_error:
+            # Don't fail OAuth if watch setup fails - log and continue
+            logger.error(f"Failed to set up Gmail watch for {mailbox.email_address}: {str(watch_error)}")
+            # User can still use the app, just won't get real-time notifications
 
         # Create session for the user (prevents session fixation)
         regenerate_session(request)
