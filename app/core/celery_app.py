@@ -20,6 +20,7 @@ celery_app = Celery(
     include=[
         "app.tasks.ingest",
         "app.tasks.classify",
+        "app.tasks.usage_reset",
     ]
 )
 
@@ -114,6 +115,20 @@ celery_app.conf.beat_schedule = {
         "schedule": crontab(hour="2", minute="0"),  # Daily at 2 AM
         "options": {"queue": "default"},
     },
+
+    # Reset monthly usage counters on 1st of each month at midnight UTC
+    "reset-monthly-usage": {
+        "task": "app.tasks.usage_reset.reset_monthly_usage",
+        "schedule": crontab(day_of_month="1", hour="0", minute="0"),  # 1st of month at midnight
+        "options": {"queue": "priority"},
+    },
+
+    # Check for stale billing periods daily at 2 AM UTC (safety net)
+    "check-billing-periods": {
+        "task": "app.tasks.usage_reset.check_billing_periods",
+        "schedule": crontab(hour="2", minute="30"),  # Daily at 2:30 AM (after cleanup)
+        "options": {"queue": "default"},
+    },
 }
 
 
@@ -129,6 +144,7 @@ celery_app.conf.task_routes = {
 celery_app.autodiscover_tasks([
     "app.tasks.ingest",
     "app.tasks.classify",
+    "app.tasks.usage_reset",
     "app.tasks.analytics",
     "app.tasks.maintenance",
 ])

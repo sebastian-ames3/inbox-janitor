@@ -89,9 +89,9 @@ def classify_email_tier1(self, mailbox_id: str, metadata_dict: dict):
                 }
             )
 
-            # Store in email_actions table
+            # Store in email_actions table and check usage limits
             async with get_async_session() as session:
-                # Verify mailbox exists
+                # Verify mailbox exists and get user settings
                 mailbox_result = await session.execute(
                     select(Mailbox).where(Mailbox.id == mailbox_id)
                 )
@@ -103,6 +103,58 @@ def classify_email_tier1(self, mailbox_id: str, metadata_dict: dict):
                         "status": "error",
                         "error": "Mailbox not found"
                     }
+
+                # Get user settings for usage tracking
+                from app.models.user_settings import UserSettings
+                user_settings_result = await session.execute(
+                    select(UserSettings).where(UserSettings.user_id == mailbox.user_id)
+                )
+                user_settings = user_settings_result.scalar_one_or_none()
+
+                if not user_settings:
+                    logger.error(f"User settings not found for user {mailbox.user_id}")
+                    return {
+                        "status": "error",
+                        "error": "User settings not found"
+                    }
+
+                # Check monthly limit BEFORE processing
+                if user_settings.has_reached_monthly_limit:
+                    logger.warning(
+                        f"User {mailbox.user_id} has reached monthly limit "
+                        f"({user_settings.emails_processed_this_month}/{user_settings.monthly_email_limit})",
+                        extra={
+                            "user_id": str(mailbox.user_id),
+                            "emails_processed": user_settings.emails_processed_this_month,
+                            "limit": user_settings.monthly_email_limit
+                        }
+                    )
+
+                    # Send limit reached notification
+                    from app.core.email_service import send_usage_limit_reached_email
+                    await send_usage_limit_reached_email(mailbox.user_id, user_settings)
+
+                    return {
+                        "status": "limit_reached",
+                        "message": "Monthly email processing limit reached",
+                        "emails_processed": user_settings.emails_processed_this_month,
+                        "limit": user_settings.monthly_email_limit
+                    }
+
+                # Check if approaching limit (80%+) and send warning
+                if user_settings.is_approaching_limit and user_settings.emails_processed_this_month % 100 == 0:
+                    # Only send every 100 emails to avoid spam
+                    logger.info(
+                        f"User {mailbox.user_id} approaching monthly limit "
+                        f"({user_settings.usage_percentage:.1f}%)",
+                        extra={
+                            "user_id": str(mailbox.user_id),
+                            "usage_percentage": user_settings.usage_percentage
+                        }
+                    )
+
+                    from app.core.email_service import send_usage_warning_email
+                    await send_usage_warning_email(mailbox.user_id, user_settings)
 
                 # Create email_action record
                 email_action = EmailAction(
@@ -126,14 +178,23 @@ def classify_email_tier1(self, mailbox_id: str, metadata_dict: dict):
                 )
 
                 session.add(email_action)
+
+                # Update usage tracking
+                user_settings.emails_processed_this_month += 1
+
+                # Note: AI cost tracking will be added when AI classification is merged
+
                 await session.commit()
 
                 logger.info(
-                    f"Stored classification for {metadata.message_id} in email_actions",
+                    f"Stored classification for {metadata.message_id} in email_actions "
+                    f"(usage: {user_settings.emails_processed_this_month}/{user_settings.monthly_email_limit})",
                     extra={
                         "message_id": metadata.message_id,
                         "action": result.action.value,
-                        "email_action_id": str(email_action.id)
+                        "email_action_id": str(email_action.id),
+                        "emails_processed": user_settings.emails_processed_this_month,
+                        "monthly_limit": user_settings.monthly_email_limit
                     }
                 )
 
