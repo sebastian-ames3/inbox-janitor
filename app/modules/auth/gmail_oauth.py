@@ -118,9 +118,10 @@ class GmailOAuthManager:
         redis_client = await self._get_redis()
         user_id = await redis_client.get(f"oauth_state:{state}")
 
-        if user_id:
+        if user_id is not None:
             # Delete state token (one-time use)
             await redis_client.delete(f"oauth_state:{state}")
+            # Return decoded value (may be empty string if no user_id was stored)
             return user_id.decode()
 
         return None
