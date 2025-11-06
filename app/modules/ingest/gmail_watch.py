@@ -20,7 +20,7 @@ from uuid import UUID
 from sqlalchemy import select
 from googleapiclient.errors import HttpError
 
-from app.core.database import get_async_session
+from app.core.database import AsyncSessionLocal
 from app.core.config import settings
 from app.models.mailbox import Mailbox
 from app.modules.auth.gmail_oauth import get_gmail_service
@@ -59,7 +59,7 @@ async def register_gmail_watch(mailbox_id: UUID) -> dict:
         )
 
     # Get database session
-    async with get_async_session() as session:
+    async with AsyncSessionLocal() as session:
         # Fetch mailbox
         result = await session.execute(
             select(Mailbox).where(Mailbox.id == mailbox_id)
@@ -144,7 +144,7 @@ async def renew_gmail_watch(mailbox_id: UUID) -> bool:
         if renewed:
             logger.info(f"Watch renewed for {mailbox_id}")
     """
-    async with get_async_session() as session:
+    async with AsyncSessionLocal() as session:
         # Fetch mailbox
         result = await session.execute(
             select(Mailbox).where(Mailbox.id == mailbox_id)
@@ -210,7 +210,7 @@ async def get_watch_status(mailbox_id: UUID) -> Optional[dict]:
         if status and status['needs_renewal']:
             await renew_gmail_watch(mailbox_id)
     """
-    async with get_async_session() as session:
+    async with AsyncSessionLocal() as session:
         # Fetch mailbox
         result = await session.execute(
             select(Mailbox).where(Mailbox.id == mailbox_id)
@@ -257,7 +257,7 @@ async def stop_gmail_watch(mailbox_id: UUID) -> bool:
         await stop_gmail_watch(mailbox_id)
         # Watch will expire naturally after 7 days
     """
-    async with get_async_session() as session:
+    async with AsyncSessionLocal() as session:
         result = await session.execute(
             select(Mailbox).where(Mailbox.id == mailbox_id)
         )
