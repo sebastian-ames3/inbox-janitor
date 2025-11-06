@@ -377,9 +377,23 @@ class TestRateLimiterIntegration:
 
     @pytest.mark.asyncio
     async def test_exceed_limit_on_sixth_request(self, rate_limiter, mock_redis):
-        """Test 6th request exceeds limit (5 requests * 5 units = 25, limit is 50)."""
+        """Test 11th request exceeds limit (10 requests * 5 units = 50, limit is 50)."""
         # Setup - simulate increasing usage
-        usage_values = ["0", "5", "10", "15", "20", "25", "30", "35", "40", "45", "50"]
+        # Note: check_rate_limit calls get() twice (current + previous window)
+        # So we need pairs: (current_window_count, previous_window_count)
+        usage_values = [
+            "0", "0",   # Request 1: current=0, prev=0, total=0
+            "5", "0",   # Request 2: current=5, prev=0, total=5
+            "10", "0",  # Request 3: current=10, prev=0, total=10
+            "15", "0",  # Request 4: current=15, prev=0, total=15
+            "20", "0",  # Request 5: current=20, prev=0, total=20
+            "25", "0",  # Request 6: current=25, prev=0, total=25
+            "30", "0",  # Request 7: current=30, prev=0, total=30
+            "35", "0",  # Request 8: current=35, prev=0, total=35
+            "40", "0",  # Request 9: current=40, prev=0, total=40
+            "45", "0",  # Request 10: current=45, prev=0, total=45
+            "50", "0",  # Request 11: current=50, prev=0, total=50 (SHOULD FAIL)
+        ]
         mock_redis.get.side_effect = usage_values + ["0"] * 100  # Add padding
 
         # Execute - make requests until limit exceeded

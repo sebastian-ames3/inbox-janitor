@@ -15,7 +15,7 @@ Run tests:
 """
 
 import pytest
-from unittest.mock import Mock, MagicMock, patch, call
+from unittest.mock import Mock, MagicMock, AsyncMock, patch, call
 from datetime import datetime, timedelta
 from googleapiclient.errors import HttpError
 import httplib2
