@@ -71,6 +71,15 @@ class Settings(BaseSettings):
     # Rate Limiting
     RATE_LIMIT_EMAILS_PER_MIN: int = 10  # Gmail API quota safety
 
+    # Gmail API Configuration
+    GMAIL_API_MAX_RETRIES: int = 3  # Max retries for failed Gmail API calls
+    GMAIL_API_RETRY_DELAY_BASE: int = 1  # Base delay for exponential backoff (seconds)
+
+    # OpenAI Configuration
+    OPENAI_MODEL: str = "gpt-4o-mini"  # AI model for email classification
+    AI_CONFIDENCE_THRESHOLD: float = 0.90  # Call AI if metadata confidence < this
+    AI_CACHE_TTL_DAYS: int = 30  # Cache AI classifications for 30 days
+
     # Classification Thresholds
     DEFAULT_AUTO_THRESHOLD: float = 0.85  # Auto-act if confidence >= this
     DEFAULT_REVIEW_THRESHOLD: float = 0.55  # Review mode if between this and auto
