@@ -384,6 +384,20 @@ You can undo any action within 30 days.
 - Rate limit: 10 emails/min (avoid Gmail quota issues)
 - Estimated time for 33,000 emails: ~55 hours (spread over days)
 
+**FR-26a:** Display rate limit explanation in backlog cleanup UI
+- Show modal/notification when user clicks "Clean up backlog"
+- Explain: "Due to Gmail API limits, this will take approximately X hours. We'll email you when it's done."
+- Calculate estimated time based on email count: `(email_count / 10) minutes`
+- Example: "Cleaning up 5,247 emails will take about 8 hours 45 minutes"
+- Include progress bar showing completion percentage
+
+**FR-26b:** Prevent duplicate backlog cleanup requests
+- Disable "Clean up backlog" button after first click
+- Show spinner/loading state: "Processing... (1,234 of 5,247 complete)"
+- Replace button with status: "Cleanup in progress - Check your email for updates"
+- Add "Cancel cleanup" option if needed
+- Prevent form resubmission on page refresh
+
 **FR-27:** Make backlog age threshold configurable in settings
 - Setting: `backlog_cleanup_age_days` (integer, default 90)
 - User can adjust: 30, 60, 90, 180, 365 days
