@@ -186,7 +186,7 @@ class TestAIClassification:
             "reason": "Promotional email from marketing platform"
         }
 
-        with patch('app.modules.classifier.tier2_ai.redis.from_url') as mock_redis, \
+        with patch('redis.asyncio.from_url') as mock_redis, \
              patch('app.modules.classifier.tier2_ai.apply_safety_rails') as mock_safety:
 
             # Mock Redis cache hit
@@ -219,7 +219,7 @@ class TestAIClassification:
             "cost": 0.003
         }
 
-        with patch('app.modules.classifier.tier2_ai.redis.from_url') as mock_redis, \
+        with patch('redis.asyncio.from_url') as mock_redis, \
              patch('app.modules.classifier.tier2_ai.apply_safety_rails') as mock_safety:
 
             # Mock Redis cache miss
@@ -288,7 +288,7 @@ class TestAIClassification:
             "cost": 0.002
         }
 
-        with patch('app.modules.classifier.tier2_ai.redis.from_url') as mock_redis, \
+        with patch('redis.asyncio.from_url') as mock_redis, \
              patch('app.modules.classifier.tier2_ai.apply_safety_rails') as mock_safety:
 
             # Mock Redis cache miss
