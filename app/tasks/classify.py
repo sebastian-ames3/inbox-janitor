@@ -2,7 +2,7 @@
 Celery tasks for email classification.
 
 Tasks:
-- classify_email_tier1: Classify email using metadata-based signals
+- classify_email_tier1: Classify email using metadata-based signals (with AI fallback)
 """
 
 import logging
@@ -22,15 +22,17 @@ logger = logging.getLogger(__name__)
 )
 def classify_email_tier1(self, mailbox_id: str, metadata_dict: dict):
     """
-    Classify email using Tier 1 (metadata-based) classifier.
+    Classify email using Tier 1 (metadata-based) classifier with AI fallback.
 
     This task is enqueued after metadata extraction completes.
 
     Flow:
     1. Reconstruct EmailMetadata from dict
     2. Run Tier 1 classifier
-    3. Store result in email_actions table
-    4. Log classification for learning
+    3. If confidence < threshold, run Tier 2 (AI) classifier
+    4. Check usage limits
+    5. Store result in email_actions table
+    6. Log classification for learning
 
     Args:
         mailbox_id: UUID of mailbox (as string)
@@ -68,11 +70,77 @@ def classify_email_tier1(self, mailbox_id: str, metadata_dict: dict):
             # Reconstruct EmailMetadata from dict
             metadata = EmailMetadata(**metadata_dict)
 
-            # Run classifier
+            # Run Tier 1 classifier
             import time
             start_time = time.time()
-            result = classify_func(metadata)
-            processing_time_ms = (time.time() - start_time) * 1000
+            tier1_result = classify_func(metadata)
+            tier1_time = time.time() - start_time
+
+            # Check if AI fallback needed (Tier 1 confidence < threshold)
+            from app.core.config import settings
+
+            tier2_result = None  # Track if tier2 was used
+            ai_cost = 0.0  # Track AI API cost
+
+            if tier1_result.confidence < settings.AI_CONFIDENCE_THRESHOLD:
+                logger.info(
+                    f"Tier 1 confidence {tier1_result.confidence:.2f} < {settings.AI_CONFIDENCE_THRESHOLD}, "
+                    f"calling AI classifier for {metadata.message_id}",
+                    extra={
+                        "message_id": metadata.message_id,
+                        "tier1_confidence": tier1_result.confidence
+                    }
+                )
+
+                # Run Tier 2 (AI) classifier
+                from app.modules.classifier.tier2_ai import (
+                    classify_email_tier2,
+                    combine_tier1_tier2_results
+                )
+
+                tier2_start = time.time()
+                tier2_result = await classify_email_tier2(metadata)
+                tier2_time = time.time() - tier2_start
+
+                # Track AI cost (if available in tier2_result metadata)
+                if hasattr(tier2_result, 'cost'):
+                    ai_cost = tier2_result.cost
+                elif 'cost' in tier2_result.signals[0].metadata if tier2_result.signals else {}:
+                    ai_cost = tier2_result.signals[0].metadata.get('cost', 0.0)
+
+                # Combine Tier 1 + Tier 2 results
+                result = combine_tier1_tier2_results(tier1_result, tier2_result)
+
+                processing_time_ms = (tier1_time + tier2_time) * 1000
+
+                logger.info(
+                    f"Combined Tier 1 + Tier 2 result: {result.action.value} "
+                    f"(Tier 1: {tier1_result.confidence:.2f}, Tier 2: {tier2_result.confidence:.2f}, "
+                    f"Combined: {result.confidence:.2f}, AI cost: ${ai_cost:.4f})",
+                    extra={
+                        "message_id": metadata.message_id,
+                        "tier1_action": tier1_result.action.value,
+                        "tier1_confidence": tier1_result.confidence,
+                        "tier2_action": tier2_result.action.value,
+                        "tier2_confidence": tier2_result.confidence,
+                        "combined_action": result.action.value,
+                        "combined_confidence": result.confidence,
+                        "ai_cost": ai_cost
+                    }
+                )
+            else:
+                # Tier 1 confidence high enough, use Tier 1 result
+                result = tier1_result
+                processing_time_ms = tier1_time * 1000
+
+                logger.info(
+                    f"Tier 1 confidence {tier1_result.confidence:.2f} >= {settings.AI_CONFIDENCE_THRESHOLD}, "
+                    f"skipping AI classifier",
+                    extra={
+                        "message_id": metadata.message_id,
+                        "tier1_confidence": tier1_result.confidence
+                    }
+                )
 
             # Log classification for learning
             from app.core.classification_logger import log_classification
@@ -156,6 +224,10 @@ def classify_email_tier1(self, mailbox_id: str, metadata_dict: dict):
                     from app.core.email_service import send_usage_warning_email
                     await send_usage_warning_email(mailbox.user_id, user_settings)
 
+                # Determine which tier was used
+                ai_used = tier2_result is not None
+                tier_label = "tier_1_and_tier_2" if ai_used else "tier_1"
+
                 # Create email_action record
                 email_action = EmailAction(
                     mailbox_id=UUID(mailbox_id),
@@ -171,7 +243,11 @@ def classify_email_tier1(self, mailbox_id: str, metadata_dict: dict):
                         "signals": [s.dict() for s in result.signals],
                         "overridden": result.overridden,
                         "override_reason": result.override_reason,
-                        "tier": "tier_1",
+                        "tier": tier_label,
+                        "ai_used": ai_used,
+                        "tier1_confidence": tier1_result.confidence,
+                        "tier2_confidence": tier2_result.confidence if tier2_result else None,
+                        "ai_cost": ai_cost if ai_used else 0.0,
                         "version": "1.0"
                     },
                     can_undo_until=datetime.utcnow() + timedelta(days=30)
@@ -182,19 +258,23 @@ def classify_email_tier1(self, mailbox_id: str, metadata_dict: dict):
                 # Update usage tracking
                 user_settings.emails_processed_this_month += 1
 
-                # Note: AI cost tracking will be added when AI classification is merged
+                # Track AI cost if AI was used
+                if ai_used and ai_cost > 0:
+                    user_settings.ai_cost_this_month += ai_cost
 
                 await session.commit()
 
                 logger.info(
                     f"Stored classification for {metadata.message_id} in email_actions "
-                    f"(usage: {user_settings.emails_processed_this_month}/{user_settings.monthly_email_limit})",
+                    f"(usage: {user_settings.emails_processed_this_month}/{user_settings.monthly_email_limit}, "
+                    f"AI cost: ${user_settings.ai_cost_this_month:.4f})",
                     extra={
                         "message_id": metadata.message_id,
                         "action": result.action.value,
                         "email_action_id": str(email_action.id),
                         "emails_processed": user_settings.emails_processed_this_month,
-                        "monthly_limit": user_settings.monthly_email_limit
+                        "monthly_limit": user_settings.monthly_email_limit,
+                        "ai_cost_this_month": user_settings.ai_cost_this_month
                     }
                 )
 
@@ -203,7 +283,9 @@ def classify_email_tier1(self, mailbox_id: str, metadata_dict: dict):
                 "message_id": metadata.message_id,
                 "action": result.action.value,
                 "confidence": result.confidence,
-                "overridden": result.overridden
+                "overridden": result.overridden,
+                "ai_used": ai_used,
+                "ai_cost": ai_cost if ai_used else 0.0
             }
 
         except Exception as e:
