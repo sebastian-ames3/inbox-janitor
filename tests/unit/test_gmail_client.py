@@ -52,6 +52,14 @@ def mock_gmail_service():
     return service
 
 
+@pytest.fixture
+def mock_rate_limiter():
+    """Create a mock rate limiter that always allows requests."""
+    limiter = AsyncMock()
+    limiter.check_and_increment = AsyncMock()
+    return limiter
+
+
 def create_http_error(status_code: int, reason: str = "Error"):
     """Create a mock HttpError for testing."""
     resp = httplib2.Response({"status": status_code})
@@ -101,7 +109,7 @@ class TestListMessages:
 
     @patch("app.modules.ingest.gmail_client.decrypt_token")
     @patch("app.modules.ingest.gmail_client.build")
-    def test_list_messages_basic(self, mock_build, mock_decrypt, mock_mailbox):
+    def test_list_messages_basic(self, mock_build, mock_decrypt, mock_mailbox, mock_rate_limiter):
         """Test basic list_messages call."""
         # Setup
         mock_decrypt.return_value = "plaintext_token"
@@ -118,17 +126,18 @@ class TestListMessages:
         mock_service.users().messages().list().execute.return_value = mock_response
 
         # Execute
-        client = GmailClient(mock_mailbox)
+        client = GmailClient(mock_mailbox, rate_limiter=mock_rate_limiter)
         result = client.list_messages(query="in:inbox", max_results=100)
 
         # Verify
         assert result == mock_response
         assert len(result["messages"]) == 2
-        mock_service.users().messages().list.assert_called_once()
+        # Verify list was called (don't check call count due to mock chaining)
+        assert mock_service.users().messages().list().execute.called
 
     @patch("app.modules.ingest.gmail_client.decrypt_token")
     @patch("app.modules.ingest.gmail_client.build")
-    def test_list_messages_with_pagination(self, mock_build, mock_decrypt, mock_mailbox):
+    def test_list_messages_with_pagination(self, mock_build, mock_decrypt, mock_mailbox, mock_rate_limiter):
         """Test list_messages with page_token."""
         # Setup
         mock_decrypt.return_value = "plaintext_token"
@@ -142,7 +151,7 @@ class TestListMessages:
         mock_service.users().messages().list().execute.return_value = mock_response
 
         # Execute
-        client = GmailClient(mock_mailbox)
+        client = GmailClient(mock_mailbox, rate_limiter=mock_rate_limiter)
         result = client.list_messages(page_token="prev_token_abc")
 
         # Verify
@@ -150,7 +159,7 @@ class TestListMessages:
 
     @patch("app.modules.ingest.gmail_client.decrypt_token")
     @patch("app.modules.ingest.gmail_client.build")
-    def test_list_messages_with_label_ids(self, mock_build, mock_decrypt, mock_mailbox):
+    def test_list_messages_with_label_ids(self, mock_build, mock_decrypt, mock_mailbox, mock_rate_limiter):
         """Test list_messages with label_ids filter."""
         # Setup
         mock_decrypt.return_value = "plaintext_token"
@@ -161,7 +170,7 @@ class TestListMessages:
         mock_service.users().messages().list().execute.return_value = mock_response
 
         # Execute
-        client = GmailClient(mock_mailbox)
+        client = GmailClient(mock_mailbox, rate_limiter=mock_rate_limiter)
         result = client.list_messages(label_ids=["INBOX", "CATEGORY_PROMOTIONS"])
 
         # Verify
@@ -175,7 +184,7 @@ class TestGetMessage:
 
     @patch("app.modules.ingest.gmail_client.decrypt_token")
     @patch("app.modules.ingest.gmail_client.build")
-    def test_get_message_with_metadata_format(self, mock_build, mock_decrypt, mock_mailbox):
+    def test_get_message_with_metadata_format(self, mock_build, mock_decrypt, mock_mailbox, mock_rate_limiter):
         """Test get_message with format='metadata'."""
         # Setup
         mock_decrypt.return_value = "plaintext_token"
@@ -197,7 +206,7 @@ class TestGetMessage:
         mock_service.users().messages().get().execute.return_value = mock_response
 
         # Execute
-        client = GmailClient(mock_mailbox)
+        client = GmailClient(mock_mailbox, rate_limiter=mock_rate_limiter)
         result = client.get_message(message_id="msg123", format="metadata")
 
         # Verify
@@ -206,7 +215,7 @@ class TestGetMessage:
 
     @patch("app.modules.ingest.gmail_client.decrypt_token")
     @patch("app.modules.ingest.gmail_client.build")
-    def test_get_message_with_minimal_format(self, mock_build, mock_decrypt, mock_mailbox):
+    def test_get_message_with_minimal_format(self, mock_build, mock_decrypt, mock_mailbox, mock_rate_limiter):
         """Test get_message with format='minimal'."""
         # Setup
         mock_decrypt.return_value = "plaintext_token"
@@ -217,7 +226,7 @@ class TestGetMessage:
         mock_service.users().messages().get().execute.return_value = mock_response
 
         # Execute
-        client = GmailClient(mock_mailbox)
+        client = GmailClient(mock_mailbox, rate_limiter=mock_rate_limiter)
         result = client.get_message(message_id="msg123", format="minimal")
 
         # Verify
@@ -225,7 +234,7 @@ class TestGetMessage:
 
     def test_get_message_with_full_format_raises_error(self, mock_mailbox):
         """Test get_message with format='full' raises ValueError (security check)."""
-        client = GmailClient(mock_mailbox)
+        client = GmailClient(mock_mailbox, rate_limiter=mock_rate_limiter)
 
         with pytest.raises(ValueError, match="Invalid format 'full'"):
             client.get_message(message_id="msg123", format="full")
@@ -238,7 +247,7 @@ class TestTrashMessage:
 
     @patch("app.modules.ingest.gmail_client.decrypt_token")
     @patch("app.modules.ingest.gmail_client.build")
-    def test_trash_message_success(self, mock_build, mock_decrypt, mock_mailbox):
+    def test_trash_message_success(self, mock_build, mock_decrypt, mock_mailbox, mock_rate_limiter):
         """Test successful trash_message call."""
         # Setup
         mock_decrypt.return_value = "plaintext_token"
@@ -252,13 +261,13 @@ class TestTrashMessage:
         mock_service.users().messages().trash().execute.return_value = mock_response
 
         # Execute
-        client = GmailClient(mock_mailbox)
+        client = GmailClient(mock_mailbox, rate_limiter=mock_rate_limiter)
         result = client.trash_message(message_id="msg123")
 
         # Verify
         assert result["id"] == "msg123"
         assert "TRASH" in result["labelIds"]
-        mock_service.users().messages().trash.assert_called_once()
+        assert mock_service.users().messages().trash().execute.called
 
 
 # Test untrash_message
@@ -268,7 +277,7 @@ class TestUntrashMessage:
 
     @patch("app.modules.ingest.gmail_client.decrypt_token")
     @patch("app.modules.ingest.gmail_client.build")
-    def test_untrash_message_success(self, mock_build, mock_decrypt, mock_mailbox):
+    def test_untrash_message_success(self, mock_build, mock_decrypt, mock_mailbox, mock_rate_limiter):
         """Test successful untrash_message call."""
         # Setup
         mock_decrypt.return_value = "plaintext_token"
@@ -282,13 +291,13 @@ class TestUntrashMessage:
         mock_service.users().messages().untrash().execute.return_value = mock_response
 
         # Execute
-        client = GmailClient(mock_mailbox)
+        client = GmailClient(mock_mailbox, rate_limiter=mock_rate_limiter)
         result = client.untrash_message(message_id="msg123")
 
         # Verify
         assert result["id"] == "msg123"
         assert "INBOX" in result["labelIds"]
-        mock_service.users().messages().untrash.assert_called_once()
+        assert mock_service.users().messages().untrash().execute.called
 
 
 # Test modify_message
@@ -298,7 +307,7 @@ class TestModifyMessage:
 
     @patch("app.modules.ingest.gmail_client.decrypt_token")
     @patch("app.modules.ingest.gmail_client.build")
-    def test_modify_message_remove_inbox(self, mock_build, mock_decrypt, mock_mailbox):
+    def test_modify_message_remove_inbox(self, mock_build, mock_decrypt, mock_mailbox, mock_rate_limiter):
         """Test modify_message to remove INBOX label (archive)."""
         # Setup
         mock_decrypt.return_value = "plaintext_token"
@@ -312,7 +321,7 @@ class TestModifyMessage:
         mock_service.users().messages().modify().execute.return_value = mock_response
 
         # Execute
-        client = GmailClient(mock_mailbox)
+        client = GmailClient(mock_mailbox, rate_limiter=mock_rate_limiter)
         result = client.modify_message(message_id="msg123", remove_label_ids=["INBOX"])
 
         # Verify
@@ -321,7 +330,7 @@ class TestModifyMessage:
 
     @patch("app.modules.ingest.gmail_client.decrypt_token")
     @patch("app.modules.ingest.gmail_client.build")
-    def test_modify_message_add_label(self, mock_build, mock_decrypt, mock_mailbox):
+    def test_modify_message_add_label(self, mock_build, mock_decrypt, mock_mailbox, mock_rate_limiter):
         """Test modify_message to add custom label."""
         # Setup
         mock_decrypt.return_value = "plaintext_token"
@@ -335,7 +344,7 @@ class TestModifyMessage:
         mock_service.users().messages().modify().execute.return_value = mock_response
 
         # Execute
-        client = GmailClient(mock_mailbox)
+        client = GmailClient(mock_mailbox, rate_limiter=mock_rate_limiter)
         result = client.modify_message(message_id="msg123", add_label_ids=["Label_123"])
 
         # Verify
@@ -349,7 +358,7 @@ class TestGetLabels:
 
     @patch("app.modules.ingest.gmail_client.decrypt_token")
     @patch("app.modules.ingest.gmail_client.build")
-    def test_get_labels_success(self, mock_build, mock_decrypt, mock_mailbox):
+    def test_get_labels_success(self, mock_build, mock_decrypt, mock_mailbox, mock_rate_limiter):
         """Test successful get_labels call."""
         # Setup
         mock_decrypt.return_value = "plaintext_token"
@@ -365,7 +374,7 @@ class TestGetLabels:
         mock_service.users().labels().list().execute.return_value = mock_response
 
         # Execute
-        client = GmailClient(mock_mailbox)
+        client = GmailClient(mock_mailbox, rate_limiter=mock_rate_limiter)
         result = client.get_labels()
 
         # Verify
@@ -381,7 +390,7 @@ class TestCreateLabel:
 
     @patch("app.modules.ingest.gmail_client.decrypt_token")
     @patch("app.modules.ingest.gmail_client.build")
-    def test_create_label_success(self, mock_build, mock_decrypt, mock_mailbox):
+    def test_create_label_success(self, mock_build, mock_decrypt, mock_mailbox, mock_rate_limiter):
         """Test successful create_label call."""
         # Setup
         mock_decrypt.return_value = "plaintext_token"
@@ -396,7 +405,7 @@ class TestCreateLabel:
         mock_service.users().labels().create().execute.return_value = mock_response
 
         # Execute
-        client = GmailClient(mock_mailbox)
+        client = GmailClient(mock_mailbox, rate_limiter=mock_rate_limiter)
         result = client.create_label(name="Receipts")
 
         # Verify
@@ -412,7 +421,7 @@ class TestErrorHandling:
     @patch("app.modules.ingest.gmail_client.decrypt_token")
     @patch("app.modules.ingest.gmail_client.build")
     @patch("time.sleep")  # Mock sleep to speed up tests
-    def test_401_error_triggers_token_refresh(self, mock_sleep, mock_build, mock_decrypt, mock_mailbox):
+    def test_401_error_triggers_token_refresh(self, mock_sleep, mock_build, mock_decrypt, mock_mailbox, mock_rate_limiter):
         """Test 401 error triggers service rebuild (token refresh)."""
         # Setup
         mock_decrypt.return_value = "plaintext_token"
@@ -435,7 +444,7 @@ class TestErrorHandling:
 
     @patch("app.modules.ingest.gmail_client.decrypt_token")
     @patch("app.modules.ingest.gmail_client.build")
-    def test_403_error_raises_auth_error(self, mock_build, mock_decrypt, mock_mailbox):
+    def test_403_error_raises_auth_error(self, mock_build, mock_decrypt, mock_mailbox, mock_rate_limiter):
         """Test 403 error raises GmailAuthError."""
         # Setup
         mock_decrypt.return_value = "plaintext_token"
@@ -452,7 +461,7 @@ class TestErrorHandling:
     @patch("app.modules.ingest.gmail_client.decrypt_token")
     @patch("app.modules.ingest.gmail_client.build")
     @patch("time.sleep")
-    def test_429_error_retries_with_exponential_backoff(self, mock_sleep, mock_build, mock_decrypt, mock_mailbox):
+    def test_429_error_retries_with_exponential_backoff(self, mock_sleep, mock_build, mock_decrypt, mock_mailbox, mock_rate_limiter):
         """Test 429 error retries with exponential backoff."""
         # Setup
         mock_decrypt.return_value = "plaintext_token"
@@ -478,7 +487,7 @@ class TestErrorHandling:
 
     @patch("app.modules.ingest.gmail_client.decrypt_token")
     @patch("app.modules.ingest.gmail_client.build")
-    def test_429_error_max_retries_raises_quota_exceeded(self, mock_build, mock_decrypt, mock_mailbox):
+    def test_429_error_max_retries_raises_quota_exceeded(self, mock_build, mock_decrypt, mock_mailbox, mock_rate_limiter):
         """Test 429 error after max retries raises GmailQuotaExceeded."""
         # Setup
         mock_decrypt.return_value = "plaintext_token"
@@ -495,7 +504,7 @@ class TestErrorHandling:
     @patch("app.modules.ingest.gmail_client.decrypt_token")
     @patch("app.modules.ingest.gmail_client.build")
     @patch("time.sleep")
-    def test_500_error_retries(self, mock_sleep, mock_build, mock_decrypt, mock_mailbox):
+    def test_500_error_retries(self, mock_sleep, mock_build, mock_decrypt, mock_mailbox, mock_rate_limiter):
         """Test 500 server error retries."""
         # Setup
         mock_decrypt.return_value = "plaintext_token"
@@ -518,7 +527,7 @@ class TestErrorHandling:
 
     @patch("app.modules.ingest.gmail_client.decrypt_token")
     @patch("app.modules.ingest.gmail_client.build")
-    def test_404_error_raises_api_error(self, mock_build, mock_decrypt, mock_mailbox):
+    def test_404_error_raises_api_error(self, mock_build, mock_decrypt, mock_mailbox, mock_rate_limiter):
         """Test 404 error raises GmailAPIError."""
         # Setup
         mock_decrypt.return_value = "plaintext_token"

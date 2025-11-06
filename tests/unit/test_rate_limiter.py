@@ -39,7 +39,7 @@ def mock_redis():
 
 
 @pytest.fixture
-async def rate_limiter(mock_redis):
+def rate_limiter(mock_redis):
     """Create a RateLimiter with mocked Redis."""
     limiter = RateLimiter(emails_per_minute=10)
     limiter._redis = mock_redis
