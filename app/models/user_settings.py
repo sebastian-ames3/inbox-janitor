@@ -63,6 +63,8 @@ class UserSettings(Base):
     @property
     def has_reached_monthly_limit(self) -> bool:
         """Check if user has reached their monthly email processing limit."""
+        if self.monthly_email_limit == 0:
+            return False  # Zero limit = no limit (unlimited)
         return self.emails_processed_this_month >= self.monthly_email_limit
 
     @property
