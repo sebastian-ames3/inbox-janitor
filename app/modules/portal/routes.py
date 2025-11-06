@@ -569,11 +569,19 @@ async def audit_log_page(
     actions = result.scalars().all()
 
     # Calculate stats (all time, last 30 days)
+    from sqlalchemy import case
+
     stats_query = select(
         func.count(EmailAction.id).label('total'),
-        func.sum(func.cast((EmailAction.action == 'archive') & (EmailAction.undone_at.is_(None)), func.Integer)).label('archived'),
-        func.sum(func.cast((EmailAction.action == 'trash') & (EmailAction.undone_at.is_(None)), func.Integer)).label('trashed'),
-        func.sum(func.cast(EmailAction.undone_at.isnot(None), func.Integer)).label('undone')
+        func.sum(
+            case((EmailAction.action == 'archive', 1), else_=0)
+        ).label('archived'),
+        func.sum(
+            case((EmailAction.action == 'trash', 1), else_=0)
+        ).label('trashed'),
+        func.sum(
+            case((EmailAction.undone_at.isnot(None), 1), else_=0)
+        ).label('undone')
     ).where(
         EmailAction.mailbox_id.in_(mailbox_ids),
         EmailAction.created_at >= thirty_days_ago
