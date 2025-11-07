@@ -34,7 +34,7 @@ def reset_monthly_usage():
     logger.info("Starting monthly usage reset task")
 
     async def _reset():
-        from app.core.database import get_async_session
+        from app.core.database import AsyncSessionLocal
         from app.models.user_settings import UserSettings
         from app.models.user import User
         from sqlalchemy import select
@@ -47,7 +47,7 @@ def reset_monthly_usage():
         users_reset = 0
         users_failed = 0
 
-        async with get_async_session() as session:
+        async with AsyncSessionLocal() as session:
             # Get all user_settings
             result = await session.execute(
                 select(UserSettings, User)
@@ -144,7 +144,7 @@ def check_billing_periods():
     logger.info("Checking for stale billing periods")
 
     async def _check():
-        from app.core.database import get_async_session
+        from app.core.database import AsyncSessionLocal
         from app.models.user_settings import UserSettings
         from app.models.user import User
         from sqlalchemy import select
@@ -153,7 +153,7 @@ def check_billing_periods():
         today = date.today()
         stale_count = 0
 
-        async with get_async_session() as session:
+        async with AsyncSessionLocal() as session:
             # Find users whose billing period started >30 days ago
             result = await session.execute(
                 select(UserSettings, User)

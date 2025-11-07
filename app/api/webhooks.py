@@ -86,11 +86,11 @@ async def gmail_webhook(request: PubSubRequest):
 
         # Look up mailbox by email address
         from sqlalchemy import select
-        from app.core.database import get_async_session
+        from app.core.database import AsyncSessionLocal
         from app.models.mailbox import Mailbox
         from datetime import datetime
 
-        async with get_async_session() as session:
+        async with AsyncSessionLocal() as session:
             result = await session.execute(
                 select(Mailbox).where(Mailbox.email_address == email_address)
             )

@@ -61,7 +61,7 @@ def classify_email_tier1(self, mailbox_id: str, metadata_dict: dict):
     async def _classify():
         from app.models.email_metadata import EmailMetadata
         from app.modules.classifier.tier1 import classify_email_tier1 as classify_func
-        from app.core.database import get_async_session
+        from app.core.database import AsyncSessionLocal
         from app.models.email_action import EmailAction
         from sqlalchemy import select
         from app.models.mailbox import Mailbox
@@ -158,7 +158,7 @@ def classify_email_tier1(self, mailbox_id: str, metadata_dict: dict):
             )
 
             # Store in email_actions table and check usage limits
-            async with get_async_session() as session:
+            async with AsyncSessionLocal() as session:
                 # Verify mailbox exists and get user settings
                 mailbox_result = await session.execute(
                     select(Mailbox).where(Mailbox.id == mailbox_id)

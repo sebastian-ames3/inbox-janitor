@@ -14,7 +14,7 @@ from uuid import UUID
 from sqlalchemy import select
 
 from app.core.celery_app import celery_app
-from app.core.database import get_async_session
+from app.core.database import AsyncSessionLocal
 from app.models.mailbox import Mailbox
 from app.modules.ingest.gmail_watch import renew_gmail_watch
 
@@ -47,7 +47,7 @@ def renew_all_gmail_watches():
         skipped_count = 0
         failed_count = 0
 
-        async with get_async_session() as session:
+        async with AsyncSessionLocal() as session:
             # Query active mailboxes used in last 30 days
             thirty_days_ago = datetime.utcnow() - timedelta(days=30)
 
@@ -125,7 +125,7 @@ def fallback_poll_gmail():
         polled_count = 0
         emails_found = 0
 
-        async with get_async_session() as session:
+        async with AsyncSessionLocal() as session:
             # Query mailboxes with no webhook in 15+ minutes
             fifteen_min_ago = datetime.utcnow() - timedelta(minutes=15)
 
@@ -249,7 +249,7 @@ def process_gmail_history(self, mailbox_id: str, history_id: str):
         )
         from app.models.email_metadata import EmailMetadataExtractError
         from sqlalchemy import select
-        from app.core.database import get_async_session
+        from app.core.database import AsyncSessionLocal
         from app.models.mailbox import Mailbox
 
         messages_processed = 0
@@ -264,7 +264,7 @@ def process_gmail_history(self, mailbox_id: str, history_id: str):
 
             if not message_ids:
                 # No new messages - still update history_id if newer
-                async with get_async_session() as session:
+                async with AsyncSessionLocal() as session:
                     result = await session.execute(
                         select(Mailbox).where(Mailbox.id == mailbox_id)
                     )
@@ -356,7 +356,7 @@ def process_gmail_history(self, mailbox_id: str, history_id: str):
                     })
 
             # Update mailbox with latest history ID
-            async with get_async_session() as session:
+            async with AsyncSessionLocal() as session:
                 result = await session.execute(
                     select(Mailbox).where(Mailbox.id == mailbox_id)
                 )
