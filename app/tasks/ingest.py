@@ -301,35 +301,36 @@ def process_gmail_history(self, mailbox_id: str, history_id: str):
                     from app.models.email_metadata_db import EmailMetadataDB
                     from uuid import UUID
 
-                    # Check if already exists (upsert logic)
-                    existing = await session.execute(
-                        select(EmailMetadataDB).where(
-                            EmailMetadataDB.mailbox_id == UUID(mailbox_id),
-                            EmailMetadataDB.message_id == message_id
+                    async with AsyncSessionLocal() as session:
+                        # Check if already exists (upsert logic)
+                        existing = await session.execute(
+                            select(EmailMetadataDB).where(
+                                EmailMetadataDB.mailbox_id == UUID(mailbox_id),
+                                EmailMetadataDB.message_id == message_id
+                            )
                         )
-                    )
-                    existing_metadata = existing.scalar_one_or_none()
+                        existing_metadata = existing.scalar_one_or_none()
 
-                    if not existing_metadata:
-                        # Insert new metadata
-                        metadata_db = EmailMetadataDB(
-                            mailbox_id=UUID(mailbox_id),
-                            message_id=metadata.message_id,
-                            thread_id=metadata.thread_id,
-                            from_address=metadata.from_address,
-                            from_name=metadata.from_name,
-                            from_domain=metadata.from_domain,
-                            subject=metadata.subject,
-                            snippet=metadata.snippet,
-                            gmail_labels=metadata.gmail_labels,
-                            gmail_category=metadata.gmail_category,
-                            headers=metadata.headers,
-                            received_at=metadata.received_at
-                        )
-                        session.add(metadata_db)
-                        await session.commit()
+                        if not existing_metadata:
+                            # Insert new metadata
+                            metadata_db = EmailMetadataDB(
+                                mailbox_id=UUID(mailbox_id),
+                                message_id=metadata.message_id,
+                                thread_id=metadata.thread_id,
+                                from_address=metadata.from_address,
+                                from_name=metadata.from_name,
+                                from_domain=metadata.from_domain,
+                                subject=metadata.subject,
+                                snippet=metadata.snippet,
+                                gmail_labels=metadata.gmail_labels,
+                                gmail_category=metadata.gmail_category,
+                                headers=metadata.headers,
+                                received_at=metadata.received_at
+                            )
+                            session.add(metadata_db)
+                            await session.commit()
 
-                        logger.debug(f"Stored metadata for {message_id} in email_metadata table")
+                            logger.debug(f"Stored metadata for {message_id} in email_metadata table")
 
                     # Enqueue classification task
                     from app.tasks.classify import classify_email_tier1 as classify_task
