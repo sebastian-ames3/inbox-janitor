@@ -302,11 +302,11 @@ async def get_gmail_service(mailbox_id: str):
         messages = service.users().messages().list(userId='me').execute()
     """
     from sqlalchemy import select
-    from app.core.database import get_async_session
+    from app.core.database import AsyncSessionLocal
     from app.models.mailbox import Mailbox
 
     # Get database session
-    async with get_async_session() as session:
+    async with AsyncSessionLocal() as session:
         # Fetch mailbox
         result = await session.execute(
             select(Mailbox).where(Mailbox.id == mailbox_id)
