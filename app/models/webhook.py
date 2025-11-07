@@ -7,7 +7,7 @@ These models validate incoming webhook payloads from:
 """
 
 from datetime import datetime
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Union
 from pydantic import BaseModel, Field, validator
 import base64
 import json
@@ -96,7 +96,7 @@ class GmailWebhookPayload(BaseModel):
     """
     emailAddress: str = Field(..., description="Gmail address that received new mail")
     email_address: Optional[str] = Field(None, description="Alias for emailAddress (snake_case)")
-    historyId: str = Field(..., description="Gmail history ID to fetch changes from")
+    historyId: Union[str, int] = Field(..., description="Gmail history ID to fetch changes from")
     history_id: Optional[str] = Field(None, description="Alias for historyId (snake_case)")
 
     @validator("email_address", pre=True, always=True)
@@ -106,8 +106,8 @@ class GmailWebhookPayload(BaseModel):
 
     @validator("history_id", pre=True, always=True)
     def set_history_id(cls, v, values):
-        """Set history_id from historyId if not provided."""
-        return v or values.get("historyId")
+        """Set history_id from historyId if not provided. Convert to string."""
+        return v or str(values.get("historyId"))
 
     class Config:
         schema_extra = {
