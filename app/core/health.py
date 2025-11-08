@@ -208,6 +208,46 @@ async def check_last_webhook() -> Dict[str, Any]:
         }
 
 
+async def check_worker_activity() -> Dict[str, Any]:
+    """
+    Check if Celery worker is processing tasks.
+
+    Verifies worker activity by checking recent EmailAction records.
+
+    Returns:
+        Dict with status and recent activity count
+    """
+    try:
+        async with AsyncSessionLocal() as session:
+            # Count email actions created in last 15 minutes
+            query = text("""
+                SELECT COUNT(*)
+                FROM email_actions
+                WHERE created_at > NOW() - INTERVAL '15 minutes'
+            """)
+            result = await session.execute(query)
+            recent_actions = result.scalar()
+
+            # Get total count
+            total_query = text("SELECT COUNT(*) FROM email_actions")
+            total_result = await session.execute(total_query)
+            total_actions = total_result.scalar()
+
+            return {
+                "status": "healthy" if recent_actions > 0 or total_actions > 0 else "unknown",
+                "recent_actions_15min": recent_actions,
+                "total_actions": total_actions,
+                "message": "Worker processing tasks" if recent_actions > 0 else
+                          ("Tasks processed previously" if total_actions > 0 else "No tasks processed yet")
+            }
+    except Exception as e:
+        logger.error(f"Worker activity check failed: {e}")
+        return {
+            "status": "unknown",
+            "error": str(e),
+        }
+
+
 async def get_health_metrics() -> Dict[str, Any]:
     """
     Get comprehensive health metrics for all components.
@@ -221,6 +261,7 @@ async def get_health_metrics() -> Dict[str, Any]:
         "gmail_api": await check_gmail_api(),
         "openai_api": await check_openai_api(),
         "last_webhook": await check_last_webhook(),
+        "worker_activity": await check_worker_activity(),
     }
 
     # Determine overall status
