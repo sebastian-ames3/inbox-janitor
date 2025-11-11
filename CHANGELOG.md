@@ -4,6 +4,96 @@ All notable decisions and changes to the Inbox Janitor project.
 
 ---
 
+## [2025-11-11] - Worker Redis Connection Fixed ✅ (In Progress)
+
+### 🔧 TROUBLESHOOTING EMAIL PROCESSING PIPELINE
+
+**Summary:** Diagnosed and fixed worker connectivity issues preventing email classification from reaching the audit log.
+
+### Investigation Timeline
+
+**Initial Problem (04:00 UTC):**
+- ✅ Webhooks being received from Gmail
+- ✅ Worker service deployed and running
+- ✅ All health checks passing (database, Redis, APIs)
+- ❌ Audit page shows 0 email actions
+- ❌ Health endpoint: `worker_activity: { status: "unknown", recent_actions_15min: 0 }`
+
+### Root Causes Identified & Fixed
+
+**Issue 1: Worker Startup Crash (PR #56 - MERGED)**
+- ❌ **Problem:** Worker crashed on startup with import errors
+- 🔍 **Root Cause:** `celery_app.py` tried to import non-existent modules:
+  - `app.tasks.analytics` (not implemented yet)
+  - `app.tasks.maintenance` (not implemented yet)
+- ✅ **Fix:** Commented out references to future modules in beat schedule and autodiscover
+- 📝 **Status:** Merged at 03:33 UTC, worker now starts successfully
+
+**Issue 2: Wrong Redis URL (FIXED)**
+- ❌ **Problem:** Worker connecting to `redis://localhost:6379/0` (doesn't exist in Railway)
+- 🔍 **Root Cause:** Worker service missing `REDIS_URL` environment variable
+- ✅ **Fix:** Updated Railway worker service environment variables:
+  - `REDIS_URL=redis://default:**@redis.railway.internal:6379/`
+  - `CELERY_BROKER_URL` (inherits from REDIS_URL)
+  - `CELERY_RESULT_BACKEND` (inherits from REDIS_URL)
+- 📝 **Status:** Fixed at 05:06 UTC, worker now connects to Railway Redis
+
+**Issue 3: Diagnostic Endpoint Added (PR #57 - MERGED)**
+- ✅ **Added:** `/webhooks/test-worker` POST endpoint for testing task queue
+- 📝 **Purpose:** Enqueues test task to verify web → Redis → worker flow
+- 📝 **Status:** Merged at 04:30 UTC
+
+**Issue 4: CSRF Blocking Test Endpoint (PR #59 - IN REVIEW)**
+- ❌ **Problem:** `curl -X POST /webhooks/test-worker` returns "CSRF token verification failed"
+- 🔍 **Root Cause:** Test endpoint not in CSRF exempt URL list
+- ✅ **Fix:** Added `re.compile(r"^/webhooks/test-worker$")` to exempt_urls in middleware.py
+- 📝 **Status:** PR #59 created, waiting for CI checks
+
+### Pull Requests
+
+- ✅ **PR #56:** Fix Celery worker startup crash (MERGED 03:33 UTC)
+- ✅ **PR #57:** Add worker connectivity test endpoint (MERGED 04:30 UTC)
+- ❌ **PR #58:** Duplicate of #56 (CLOSED)
+- ⏳ **PR #59:** Exempt test endpoint from CSRF (IN REVIEW)
+
+### Next Steps (After PR #59 Merges)
+
+**Testing Worker Connectivity:**
+```bash
+# Test if tasks reach worker
+curl -X POST https://inbox-janitor-production-03fc.up.railway.app/webhooks/test-worker
+
+# Check worker logs for:
+# [INFO] Task test_celery_connection[...] received
+# [INFO] SUCCESS: Celery works!
+```
+
+**If test succeeds:**
+- [ ] Send test email to connected Gmail account
+- [ ] Verify email appears in audit log
+- [ ] Confirm health endpoint shows worker_activity > 0
+- [ ] Update CHANGELOG with full resolution
+
+**If test fails:**
+- [ ] Check Redis connection from both services
+- [ ] Verify task serialization format
+- [ ] Check for network/firewall issues between services
+
+### Infrastructure Status
+
+**Services (All Running):**
+1. ✅ inbox-janitor (web) - Webhooks receiving, Redis connected
+2. ✅ worker - Starting successfully, connected to Railway Redis
+3. ✅ Postgres - Healthy (7.43ms latency)
+4. ✅ Redis - Healthy (redis.railway.internal:6379)
+
+**Environment Variables (Now Correct):**
+- ✅ Web service: `REDIS_URL=redis://redis.railway.internal:6379/`
+- ✅ Worker service: `REDIS_URL=redis://redis.railway.internal:6379/`
+- ✅ All other vars shared correctly (DATABASE_URL, ENCRYPTION_KEY, etc.)
+
+---
+
 ## [2025-11-08] - Railway Worker Service Deployed ✅
 
 ### 🎉 ALL RAILWAY SERVICES OPERATIONAL
@@ -37,19 +127,6 @@ All notable decisions and changes to the Inbox Janitor project.
 **Environment Variables:**
 - Shared across web + worker services
 - DATABASE_URL, REDIS_URL, ENCRYPTION_KEY, GOOGLE_CLIENT_ID, OPENAI_API_KEY all configured
-
-### Current Issue Under Investigation
-
-**Symptom:** Audit page shows 0 email actions despite:
-- ✅ Webhooks being received (last webhook 30 min ago)
-- ✅ Worker service deployed and running
-- ✅ All health checks passing
-
-**Next Steps:**
-- [ ] Check worker service logs for task processing errors
-- [ ] Verify Redis connection from worker
-- [ ] Confirm tasks are reaching the worker queue
-- [ ] Test with manual webhook trigger
 
 ---
 

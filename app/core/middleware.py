@@ -86,6 +86,7 @@ def configure_csrf(app: FastAPI) -> None:
         exempt_urls=[
             re.compile(r"^/health$"),
             re.compile(r"^/webhooks/gmail$"),  # Gmail Pub/Sub webhook
+            re.compile(r"^/webhooks/test-worker$"),  # Worker diagnostic endpoint
             re.compile(r"^/api/test/.*$"),  # Test-only endpoints (E2E auth)
         ],
     )
