@@ -104,10 +104,11 @@ def classify_email_tier1(self, mailbox_id: str, metadata_dict: dict):
                 tier2_time = time.time() - tier2_start
 
                 # Track AI cost (if available in tier2_result metadata)
+                # Note: Cost tracking not implemented yet, default to 0
                 if hasattr(tier2_result, 'cost'):
                     ai_cost = tier2_result.cost
-                elif 'cost' in tier2_result.signals[0].metadata if tier2_result.signals else {}:
-                    ai_cost = tier2_result.signals[0].metadata.get('cost', 0.0)
+                else:
+                    ai_cost = 0.0  # TODO: Implement AI cost tracking
 
                 # Combine Tier 1 + Tier 2 results
                 result = combine_tier1_tier2_results(tier1_result, tier2_result)
