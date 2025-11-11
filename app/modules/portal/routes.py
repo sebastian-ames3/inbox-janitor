@@ -713,7 +713,8 @@ async def audit_log_page(
             "total_actions": total_actions,
             "action_filter": action_filter,
             "search": search or "",
-            "now": datetime.utcnow()
+            "now": datetime.utcnow(),
+            "min": min  # Add Python's min function for Jinja2 template
         }
     )
 
