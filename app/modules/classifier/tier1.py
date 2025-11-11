@@ -23,11 +23,11 @@ from app.modules.classifier.safety_rails import apply_safety_rails
 logger = logging.getLogger(__name__)
 
 
-# Classification thresholds
-THRESHOLD_AUTO_TRASH = 0.85  # Auto-trash if confidence >= 0.85
-THRESHOLD_ARCHIVE = 0.55     # Archive if confidence >= 0.55
-THRESHOLD_REVIEW = 0.30      # Review if confidence >= 0.30
-# Below 0.30 = KEEP
+# Classification thresholds (tuned based on 18K+ email analysis)
+THRESHOLD_AUTO_TRASH = 0.85  # Auto-trash if confidence >= 0.85 (total_score >= 1.0)
+THRESHOLD_ARCHIVE = 0.45     # Archive if confidence >= 0.45 (total_score >= 0.0)
+THRESHOLD_REVIEW = 0.25      # Review if confidence >= 0.25 (total_score >= -0.3)
+# Below 0.25 = KEEP (total_score < -0.3)
 
 
 def classify_email_tier1(metadata: EmailMetadata) -> ClassificationResult:

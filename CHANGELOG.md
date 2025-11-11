@@ -4,11 +4,155 @@ All notable decisions and changes to the Inbox Janitor project.
 
 ---
 
-## [2025-11-11] - Worker Redis Connection Fixed ✅ (In Progress)
+## [2025-11-11 Evening] - Classifier Tuned Based on Real Data ⚙️ IN PROGRESS
 
-### 🔧 TROUBLESHOOTING EMAIL PROCESSING PIPELINE
+### 🎯 MAJOR IMPROVEMENT: Classifier Threshold Tuning
 
-**Summary:** Diagnosed and fixed worker connectivity issues preventing email classification from reaching the audit log.
+**Summary:** After processing 18,700+ emails, analyzed classification distribution and discovered classifier was far too conservative. Tuned thresholds, signal weights, and added automated monitoring signal.
+
+### Problem Discovered
+
+**Initial Distribution (Too Conservative):**
+- KEEP: 55% ❌ (should be ~15%)
+- REVIEW: 38% ❌ (should be <10%)
+- ARCHIVE: 4% ❌ (should be ~30%)
+- TRASH: 2.5% ❌ (should be ~50%)
+
+**User Feedback:**
+- Railway deployment crash emails being marked as KEEP
+- Too many emails in REVIEW (uncertainty band too wide)
+- Processing cost low (~$0.003/email) but distribution wrong
+
+### Root Causes Identified
+
+1. **Signal weights too weak:**
+   - Gmail CATEGORY_PROMOTIONS only +0.60 (should be stronger)
+   - Personal category only -0.30 (should be stronger negative)
+
+2. **Thresholds too conservative:**
+   - REVIEW range 0.30-0.54 too wide (0.24 confidence range)
+   - ARCHIVE threshold 0.55 too high (missing promotional emails)
+
+3. **Missing signals:**
+   - No detection for automated monitoring emails (Railway, GitHub, Sentry)
+   - Deployment alerts being classified as KEEP
+
+### Changes Made (PR #63)
+
+**1. Add WORKER_PAUSED Environment Variable Support**
+- Worker checks `WORKER_PAUSED=true` and skips classification
+- Allows pausing processing to tune thresholds
+- Returns early with status "paused"
+- 📂 **File:** `app/tasks/classify.py`
+
+**2. Lower Classification Thresholds (tier1.py)**
+```python
+# Before
+THRESHOLD_ARCHIVE = 0.55     # Too high
+THRESHOLD_REVIEW = 0.30      # Too low (wide band)
+
+# After
+THRESHOLD_ARCHIVE = 0.45     # Catch more promotional emails
+THRESHOLD_REVIEW = 0.25      # Narrow uncertain band
+THRESHOLD_AUTO_TRASH = 0.85  # Unchanged (keep high confidence)
+```
+- 📂 **File:** `app/modules/classifier/tier1.py`
+
+**3. Increase Signal Weights (signals.py)**
+
+| Signal | Before | After | Impact |
+|--------|--------|-------|--------|
+| Gmail CATEGORY_PROMOTIONS | +0.60 | +0.70 | Push more to TRASH |
+| Gmail CATEGORY_SOCIAL | +0.50 | +0.60 | Push more to TRASH |
+| Gmail CATEGORY_UPDATES | +0.30 | +0.40 | Push more to ARCHIVE |
+| Gmail CATEGORY_FORUMS | +0.20 | +0.30 | Push more to ARCHIVE |
+| Gmail CATEGORY_PERSONAL | -0.30 | -0.40 | Stronger keep signal |
+
+- 📂 **File:** `app/modules/classifier/signals.py`
+
+**4. Add Automated Monitoring Signal (NEW)**
+
+Detects emails from deployment/monitoring services:
+- **Domains:** railway.app, github.com, sentry.io, vercel.com, etc.
+- **Keywords:** deployment, crash, build failed, alert, monitoring
+- **Scoring:**
+  - Domain + keywords: +0.50 (strong archive signal)
+  - Keywords only: +0.30 (moderate archive signal)
+
+This catches Railway crash emails, GitHub notifications, etc.
+
+- 📂 **File:** `app/modules/classifier/signals.py:329-385`
+
+### Expected New Distribution
+
+- **KEEP: ~15%** (important personal emails only)
+- **REVIEW: ~5%** (truly uncertain cases)
+- **ARCHIVE: ~30%** (promotional with value, monitoring emails)
+- **TRASH: ~50%** (clear spam/promotions)
+
+### Testing Plan
+
+1. ✅ Merge PR #63
+2. ⏳ Remove `WORKER_PAUSED` env var to resume processing
+3. ⏳ Process small batch (~100-200 emails)
+4. ⏳ Check audit page for new distribution
+5. ⏳ Fine-tune if needed, then process full backlog
+
+### Pull Request
+
+- **PR #63:** Tune classifier thresholds based on 18K+ email analysis (IN REVIEW)
+
+---
+
+## [2025-11-11 Afternoon] - Audit Page Display Fixed ✅ COMPLETE
+
+### 🐛 BUG FIX: Audit Page Internal Server Errors
+
+**Summary:** Fixed two bugs preventing audit page from displaying processed emails. Worker had processed 18,700+ emails successfully but audit page couldn't render them.
+
+### Issues Fixed
+
+**Issue 1: Stats Row None Handling (PR #62 - MERGED)**
+- ❌ **Problem:** `jinja2.exceptions.AttributeError` when accessing `stats_row.total` on `None`
+- 🔍 **Root Cause:** SQL query `result.first()` returns `None` when no data, but code assumed row always exists
+- ✅ **Fix:** Added null check before accessing stats_row properties
+- 📂 **File:** `app/modules/portal/routes.py:684-701`
+
+**Issue 2: Jinja2 'min' Undefined (Direct Push to main)**
+- ❌ **Problem:** `jinja2.exceptions.UndefinedError: 'min' is undefined`
+- 🔍 **Root Cause:** Template used `min(page * per_page, total_actions)` but Jinja2 doesn't have Python builtins by default
+- ✅ **Fix:** Added `"min": min` to template context
+- 📂 **File:** `app/modules/portal/routes.py:717`
+
+### Pull Requests
+
+- ✅ **PR #62:** Add debug endpoint for audit page error diagnosis (MERGED)
+  - Added `/api/audit/debug` endpoint for troubleshooting
+  - Fixed stats_row None handling
+
+### Worker Processing During Audit Page Bug
+
+**Important Discovery:**
+- Worker and audit page are completely independent services
+- Worker (Celery) processes emails → stores in database
+- Audit page (FastAPI) reads from database → displays to user
+- **Worker processed 18,700+ emails successfully while audit page was broken**
+- Audit page bug only prevented viewing, not processing
+
+**Final Status:**
+- ✅ Audit page displays all 18,700+ processed emails
+- ✅ Pagination working (50 per page, 374 pages)
+- ✅ Filters and search working
+- ✅ Stats summary working
+- ✅ Undo buttons present (30-day window)
+
+---
+
+## [2025-11-11 Morning] - Email Processing Pipeline Fixed ✅ COMPLETE
+
+### 🎉 MAJOR FIX: Worker Now Processing Emails Successfully
+
+**Summary:** Diagnosed and fixed 8 critical issues preventing email classification from reaching the audit log. Worker now processing emails successfully.
 
 ### Investigation Timeline
 
@@ -19,6 +163,12 @@ All notable decisions and changes to the Inbox Janitor project.
 - ❌ Audit page shows 0 email actions
 - ❌ Health endpoint: `worker_activity: { status: "unknown", recent_actions_15min: 0 }`
 
+**Final Status (06:00 UTC):**
+- ✅ Worker processing emails successfully
+- ✅ Health endpoint: `worker_activity: { status: "healthy", recent_actions_15min: 369, total_actions: 370 }`
+- ✅ All 6 root causes identified and fixed
+- ✅ OpenAI API funded (rate limit resolved)
+
 ### Root Causes Identified & Fixed
 
 **Issue 1: Worker Startup Crash (PR #56 - MERGED)**
@@ -28,69 +178,152 @@ All notable decisions and changes to the Inbox Janitor project.
   - `app.tasks.maintenance` (not implemented yet)
 - ✅ **Fix:** Commented out references to future modules in beat schedule and autodiscover
 - 📝 **Status:** Merged at 03:33 UTC, worker now starts successfully
+- 📂 **Files Changed:** `app/core/celery_app.py`
 
-**Issue 2: Wrong Redis URL (FIXED)**
+**Issue 2: Wrong Redis URL (FIXED VIA RAILWAY DASHBOARD)**
 - ❌ **Problem:** Worker connecting to `redis://localhost:6379/0` (doesn't exist in Railway)
 - 🔍 **Root Cause:** Worker service missing `REDIS_URL` environment variable
 - ✅ **Fix:** Updated Railway worker service environment variables:
   - `REDIS_URL=redis://default:**@redis.railway.internal:6379/`
   - `CELERY_BROKER_URL` (inherits from REDIS_URL)
   - `CELERY_RESULT_BACKEND` (inherits from REDIS_URL)
-- 📝 **Status:** Fixed at 05:06 UTC, worker now connects to Railway Redis
+- 📝 **Status:** Fixed at 05:06 UTC via Railway dashboard, worker now connects to Railway Redis
 
-**Issue 3: Diagnostic Endpoint Added (PR #57 - MERGED)**
-- ✅ **Added:** `/webhooks/test-worker` POST endpoint for testing task queue
-- 📝 **Purpose:** Enqueues test task to verify web → Redis → worker flow
-- 📝 **Status:** Merged at 04:30 UTC
-
-**Issue 4: CSRF Blocking Test Endpoint (PR #59 - IN REVIEW)**
+**Issue 3: CSRF Blocking Test Endpoint (PR #59 - MERGED)**
 - ❌ **Problem:** `curl -X POST /webhooks/test-worker` returns "CSRF token verification failed"
 - 🔍 **Root Cause:** Test endpoint not in CSRF exempt URL list
 - ✅ **Fix:** Added `re.compile(r"^/webhooks/test-worker$")` to exempt_urls in middleware.py
-- 📝 **Status:** PR #59 created, waiting for CI checks
+- 📝 **Status:** Merged at 05:10 UTC
+- 📂 **Files Changed:** `app/core/middleware.py`
+
+**Issue 4: AsyncIO Event Loop Closure (PR #60 - MERGED) 🔥 CRITICAL**
+- ❌ **Problem:** Worker crashed with `RuntimeError: Event loop is closed` after processing first task
+- 🔍 **Root Cause:** All Celery tasks used `asyncio.run()` which creates a new event loop, runs the coroutine, then **closes** the loop. When async database connections tried to spawn tasks, they attached to the closed loop.
+- ✅ **Fix:** Created `app/core/celery_utils.py` with `run_async_task()` helper that:
+  - Reuses existing event loop in worker process
+  - Creates new loop only if none exists or loop is closed
+  - **Never closes the loop** (other tasks may need it)
+  - Updated 7 tasks across 3 files to use `run_async_task()` instead of `asyncio.run()`
+- 📝 **Status:** Merged at 05:25 UTC, worker now processes tasks without crashing
+- 📂 **Files Changed:**
+  - `app/core/celery_utils.py` (NEW FILE - critical async helper)
+  - `app/tasks/ingest.py` (3 functions updated)
+  - `app/tasks/classify.py` (2 functions updated)
+  - `app/tasks/usage_reset.py` (2 functions updated)
+
+**Issue 5: ClassificationSignal Metadata AttributeError (PR #61 - MERGED) 🔥 CRITICAL**
+- ❌ **Problem:** Worker crashed with `AttributeError: 'ClassificationSignal' object has no attribute 'metadata'`
+- 🔍 **Root Cause:** Line 109 in `app/tasks/classify.py` tried to access `tier2_result.signals[0].metadata.get('cost')` but `ClassificationSignal` only has fields: `name`, `score`, `reason` (not `metadata`)
+- ✅ **Fix:** Removed invalid metadata access, default ai_cost to 0.0
+- 📝 **Status:** Merged at 05:50 UTC as HOTFIX
+- 📂 **Files Changed:** `app/tasks/classify.py` (lines 106-111)
+
+**Issue 6: OpenAI Rate Limit (RESOLVED)**
+- ❌ **Problem:** `Error code: 429 - Rate limit reached for gpt-4o-mini: Limit 3, Used 3`
+- 🔍 **Root Cause:** OpenAI free tier has 3 requests per minute limit
+- ✅ **Fix:** User added payment method to OpenAI account
+- 📝 **Status:** Resolved at 06:00 UTC, now has 500 RPM rate limit
+- 💰 **Cost Impact:** ~$0.003 per email classified
+
+**Issue 7: Worker Concurrency Too High (FIXED VIA RAILWAY DASHBOARD)**
+- ❌ **Problem:** Worker restarting every 7-10 seconds with no error messages (silent OOMKill)
+- 🔍 **Root Cause:** Default concurrency of 48 workers exhausted Railway's memory (~512MB-1GB)
+- ✅ **Fix:** Updated Railway worker start command to use `--concurrency=4`
+- 📝 **Status:** Fixed at 05:15 UTC via Railway dashboard, worker stays running
 
 ### Pull Requests
 
 - ✅ **PR #56:** Fix Celery worker startup crash (MERGED 03:33 UTC)
 - ✅ **PR #57:** Add worker connectivity test endpoint (MERGED 04:30 UTC)
 - ❌ **PR #58:** Duplicate of #56 (CLOSED)
-- ⏳ **PR #59:** Exempt test endpoint from CSRF (IN REVIEW)
+- ✅ **PR #59:** Exempt test endpoint from CSRF (MERGED 05:10 UTC)
+- ✅ **PR #60:** Fix AsyncIO event loop closure 🔥 (MERGED 05:25 UTC)
+- ✅ **PR #61:** Fix ClassificationSignal metadata bug 🔥 (MERGED 05:50 UTC)
 
-### Next Steps (After PR #59 Merges)
+### Final Verification (06:05 UTC)
 
-**Testing Worker Connectivity:**
-```bash
-# Test if tasks reach worker
-curl -X POST https://inbox-janitor-production-03fc.up.railway.app/webhooks/test-worker
-
-# Check worker logs for:
-# [INFO] Task test_celery_connection[...] received
-# [INFO] SUCCESS: Celery works!
+**Health Endpoint:**
+```json
+{
+  "worker_activity": {
+    "status": "healthy",
+    "recent_actions_15min": 369,
+    "total_actions": 370,
+    "message": "Worker processing tasks"
+  }
+}
 ```
 
-**If test succeeds:**
-- [ ] Send test email to connected Gmail account
-- [ ] Verify email appears in audit log
-- [ ] Confirm health endpoint shows worker_activity > 0
-- [ ] Update CHANGELOG with full resolution
+**Worker Performance:**
+- ✅ 370 email actions processed in ~60 minutes
+- ✅ Processing rate accelerating with funded OpenAI account (500 RPM)
+- ✅ No errors in worker logs
+- ✅ All tasks completing successfully
 
-**If test fails:**
-- [ ] Check Redis connection from both services
-- [ ] Verify task serialization format
-- [ ] Check for network/firewall issues between services
+**Testing Checklist:**
+- ✅ Worker starts without crashes
+- ✅ Worker connects to Railway Redis
+- ✅ Worker processes tasks from queue
+- ✅ AsyncIO event loop stays alive
+- ✅ Email classifications stored in database
+- ✅ OpenAI API rate limit resolved
+- ✅ Health endpoint shows worker activity
+- [ ] User verifies emails appear in audit log (NEXT STEP)
 
 ### Infrastructure Status
 
 **Services (All Running):**
 1. ✅ inbox-janitor (web) - Webhooks receiving, Redis connected
-2. ✅ worker - Starting successfully, connected to Railway Redis
-3. ✅ Postgres - Healthy (7.43ms latency)
+2. ✅ worker - Processing emails successfully, Redis connected, 4 workers
+3. ✅ Postgres - Healthy (~100ms latency)
 4. ✅ Redis - Healthy (redis.railway.internal:6379)
 
 **Environment Variables (Now Correct):**
 - ✅ Web service: `REDIS_URL=redis://redis.railway.internal:6379/`
 - ✅ Worker service: `REDIS_URL=redis://redis.railway.internal:6379/`
-- ✅ All other vars shared correctly (DATABASE_URL, ENCRYPTION_KEY, etc.)
+- ✅ Worker service: `--concurrency=4` (prevents OOMKill)
+- ✅ All other vars shared correctly (DATABASE_URL, ENCRYPTION_KEY, OPENAI_API_KEY, etc.)
+
+**Key Files Created:**
+- `app/core/celery_utils.py` - Critical async event loop helper for Celery tasks
+- `railway.worker.json` - Worker service configuration
+
+### Lessons Learned
+
+**1. AsyncIO + Celery Prefork Workers Don't Mix Well**
+- `asyncio.run()` closes the event loop after each task
+- Async database connections need persistent event loops
+- Solution: Reuse event loops, never close them in worker processes
+
+**2. Railway Silent OOMKill**
+- No error messages when memory limit exceeded
+- Default Celery concurrency (48) too high for Railway's memory limits
+- Solution: Reduce to 4 workers for 512MB-1GB memory
+
+**3. OpenAI Rate Limits**
+- Free tier: 3 RPM (too slow for production)
+- Paid tier: 500 RPM (sufficient for email processing)
+- Cost: ~$0.003 per email (~$3 per 1,000 emails)
+
+**4. Multi-Layer Debugging Required**
+- Layer 1: Worker startup (imports, modules)
+- Layer 2: Network connectivity (Redis URL)
+- Layer 3: AsyncIO event loop management
+- Layer 4: Business logic (ClassificationSignal structure)
+- Layer 5: External APIs (OpenAI rate limits)
+
+### Next Steps
+
+**User Action Required:**
+- [ ] Visit https://inbox-janitor-production-03fc.up.railway.app/audit to verify emails appear
+- [ ] Check if email classifications look correct
+- [ ] Report any false positives/negatives
+
+**Future Improvements:**
+- [ ] Add Sentry monitoring for worker crashes
+- [ ] Implement AI cost tracking in ClassificationSignal
+- [ ] Add worker health metrics to dashboard
+- [ ] Monitor OpenAI API usage/costs
 
 ---
 

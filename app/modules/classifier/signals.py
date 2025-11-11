@@ -26,12 +26,12 @@ def signal_gmail_category(metadata: EmailMetadata) -> ClassificationSignal:
 
     Gmail categories are highly accurate for promotional content.
 
-    Scoring:
-    - CATEGORY_PROMOTIONS: +0.60 (strong trash signal)
-    - CATEGORY_SOCIAL: +0.50 (moderate trash signal)
-    - CATEGORY_UPDATES: +0.30 (light archive signal)
-    - CATEGORY_FORUMS: +0.20 (light archive signal)
-    - CATEGORY_PERSONAL: -0.30 (keep signal)
+    Scoring (tuned based on 18K+ email analysis):
+    - CATEGORY_PROMOTIONS: +0.70 (very strong trash signal)
+    - CATEGORY_SOCIAL: +0.60 (strong trash signal)
+    - CATEGORY_UPDATES: +0.40 (moderate archive signal)
+    - CATEGORY_FORUMS: +0.30 (light archive signal)
+    - CATEGORY_PERSONAL: -0.40 (strong keep signal)
     - No category: 0.0 (neutral)
 
     Args:
@@ -44,19 +44,19 @@ def signal_gmail_category(metadata: EmailMetadata) -> ClassificationSignal:
     reason = "No Gmail category"
 
     if metadata.is_promotional:
-        score = 0.60
+        score = 0.70  # Increased from 0.60 to push more emails to TRASH
         reason = "Gmail categorized as CATEGORY_PROMOTIONS"
     elif metadata.is_social:
-        score = 0.50
+        score = 0.60  # Increased from 0.50
         reason = "Gmail categorized as CATEGORY_SOCIAL"
     elif metadata.is_updates:
-        score = 0.30
+        score = 0.40  # Increased from 0.30
         reason = "Gmail categorized as CATEGORY_UPDATES"
     elif metadata.is_forums:
-        score = 0.20
+        score = 0.30  # Increased from 0.20
         reason = "Gmail categorized as CATEGORY_FORUMS"
     elif metadata.is_personal:
-        score = -0.30
+        score = -0.40  # Increased negative from -0.30
         reason = "Gmail categorized as CATEGORY_PERSONAL"
 
     return ClassificationSignal(
@@ -326,6 +326,65 @@ def signal_receipt_indicators(metadata: EmailMetadata) -> ClassificationSignal:
         )
 
 
+def signal_automated_monitoring(metadata: EmailMetadata) -> ClassificationSignal:
+    """
+    Signal for automated monitoring/deployment emails.
+
+    Detects automated notifications from deployment services, monitoring tools,
+    CI/CD platforms, etc. These are typically safe to archive or trash.
+
+    Scoring:
+    - Automated monitoring keywords + automated sender: +0.50 (strong archive signal)
+    - Automated monitoring keywords only: +0.30 (moderate archive signal)
+    - Neither: 0.0 (neutral)
+
+    Args:
+        metadata: Email metadata
+
+    Returns:
+        ClassificationSignal
+    """
+    # Automated sender domains
+    automated_domains = [
+        'railway.app', 'vercel.com', 'netlify.app', 'heroku.com',
+        'github.com', 'gitlab.com', 'circleci.com', 'travis-ci.org',
+        'sentry.io', 'datadog.com', 'newrelic.com', 'pagerduty.com',
+        'statuspage.io', 'uptimerobot.com'
+    ]
+
+    # Automated subject keywords
+    automated_keywords = [
+        'deployment', 'deploy', 'build failed', 'build succeeded',
+        'crash', 'error report', 'exception', 'alert',
+        'monitoring', 'uptime', 'downtime', 'incident',
+        'ci/cd', 'pipeline', 'workflow', '[github]', '[gitlab]'
+    ]
+
+    is_automated_domain = any(domain in metadata.from_domain.lower() for domain in automated_domains)
+
+    subject_lower = (metadata.subject or '').lower()
+    has_automated_keywords = any(keyword in subject_lower for keyword in automated_keywords)
+
+    if is_automated_domain and has_automated_keywords:
+        return ClassificationSignal(
+            name="automated_monitoring",
+            score=0.50,
+            reason=f"Automated monitoring email from {metadata.from_domain}"
+        )
+    elif has_automated_keywords:
+        return ClassificationSignal(
+            name="automated_monitoring",
+            score=0.30,
+            reason="Automated monitoring keywords in subject"
+        )
+    else:
+        return ClassificationSignal(
+            name="automated_monitoring",
+            score=0.0,
+            reason="Not automated monitoring email"
+        )
+
+
 def calculate_all_signals(metadata: EmailMetadata) -> list[ClassificationSignal]:
     """
     Calculate all classification signals for an email.
@@ -350,6 +409,7 @@ def calculate_all_signals(metadata: EmailMetadata) -> list[ClassificationSignal]
         signal_subject_patterns(metadata),
         signal_starred_or_important(metadata),
         signal_receipt_indicators(metadata),
+        signal_automated_monitoring(metadata),  # NEW: Catch Railway/GitHub/etc.
     ]
 
     # Filter out neutral signals (score == 0) for cleaner logging
