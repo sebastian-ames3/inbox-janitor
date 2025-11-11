@@ -1,26 +1,38 @@
 # Inbox Janitor - Development Context
 
-**Last Updated:** 2025-11-05
-**Status:** PRD 0002 Complete - Web Portal + CI/CD Operational
-**Current Phase:** Production Ready (~360 Tests, GitHub Actions CI, All Security Validated)
+**Last Updated:** 2025-11-11 (Evening Session)
+**Status:** Classifier Tuned & Deployed - Ready for Testing
+**Current Phase:** Production Testing & Optimization (~360 Tests, 18.7K+ Emails Classified)
 
 ---
 
 ## 📍 Project Status
 
-**✅ Recently Completed:**
-- PRD 0001: Email Processing Pipeline (PR #18)
-- PRD 0002: Web Portal Foundation + Testing (PRs #19-29)
-- OAuth & Railway Deployment (PRs #10-14)
+**✅ Recently Completed (2025-11-11):**
+- ✅ Email Processing Pipeline Fully Operational (PRs #56-62)
+  - Fixed 8 critical bugs (worker startup, Redis, AsyncIO event loop, audit page)
+  - Worker processed 18,723 emails successfully
+  - Audit page displaying all classifications
+- ✅ OpenAI API Funded (500 RPM, ~$0.003/email)
+- ✅ Audit Page Fixes (stats_row None, Jinja2 min() function)
+- ✅ Classifier Tuning Complete (PR #63 - Merged)
+  - Lowered thresholds: ARCHIVE 0.55→0.45, REVIEW 0.30→0.25
+  - Increased signal weights for Gmail categories (+0.10)
+  - Added automated_monitoring signal for Railway/GitHub emails (+0.50)
+  - Fixed test failure (test_recent_email_with_low_confidence)
+  - All CI checks passed, deployed to production
 
-**🚀 Current Milestone:** Ready for Production Testing
-- [ ] Deploy to Railway production
-- [ ] Manual testing checklist (docs/TESTING.md)
-- [ ] Email templates (Postmark integration)
+**🚀 Current Milestone:** Test Classifier Improvements
+- [ ] Remove WORKER_PAUSED env var
+- [ ] Process small batch (~50-100 emails)
+- [ ] Verify new distribution (target: ~15% KEEP, ~5% REVIEW, ~30% ARCHIVE, ~50% TRASH)
+- [ ] Review sample emails for misclassifications
+- [ ] Process remaining backlog (~11K emails) if distribution looks good
 
 **⏭️ Next Up:**
 - PRD 0003: Action Execution Engine (archive/trash, quarantine, undo)
-- OR: Stripe billing integration
+- Stripe billing integration
+- Weekly digest emails
 
 **📚 Full History:** See [CHANGELOG.md](CHANGELOG.md) for detailed completion records.
 
