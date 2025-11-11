@@ -9,6 +9,7 @@ from datetime import date, timedelta
 from dateutil.relativedelta import relativedelta
 
 from app.core.celery_app import celery_app
+from app.core.celery_utils import run_async_task
 
 logger = logging.getLogger(__name__)
 
@@ -124,7 +125,7 @@ def reset_monthly_usage():
         }
 
     # Run async function
-    return asyncio.run(_reset())
+    return run_async_task(_reset())
 
 
 @celery_app.task(name="app.tasks.usage_reset.check_billing_periods")
@@ -195,4 +196,4 @@ def check_billing_periods():
             "stale_periods_reset": stale_count
         }
 
-    return asyncio.run(_check())
+    return run_async_task(_check())
