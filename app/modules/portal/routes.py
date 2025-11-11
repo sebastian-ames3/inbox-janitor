@@ -465,6 +465,100 @@ async def delete_account(
     }
 
 
+@router.get("/api/audit/debug")
+async def audit_debug(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Debug endpoint to test audit log queries."""
+    from datetime import datetime, timedelta
+    from app.models.email_action import EmailAction
+    from sqlalchemy import func, case
+
+    # Fetch user's mailboxes
+    result = await db.execute(
+        select(Mailbox).where(Mailbox.user_id == user.id)
+    )
+    mailboxes = result.scalars().all()
+    mailbox_ids = [m.id for m in mailboxes]
+
+    if not mailbox_ids:
+        return {"error": "No mailboxes found", "mailbox_count": 0}
+
+    # Test query for actions (last 30 days)
+    thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+
+    try:
+        # Test count query
+        count_query = select(func.count()).select_from(EmailAction).where(
+            EmailAction.mailbox_id.in_(mailbox_ids),
+            EmailAction.created_at >= thirty_days_ago
+        )
+        result = await db.execute(count_query)
+        total_actions = result.scalar()
+
+        # Test stats query
+        stats_query = select(
+            func.count(EmailAction.id).label('total'),
+            func.sum(
+                case((EmailAction.action == 'archive', 1), else_=0)
+            ).label('archived'),
+            func.sum(
+                case((EmailAction.action == 'trash', 1), else_=0)
+            ).label('trashed'),
+            func.sum(
+                case((EmailAction.undone_at.isnot(None), 1), else_=0)
+            ).label('undone')
+        ).where(
+            EmailAction.mailbox_id.in_(mailbox_ids),
+            EmailAction.created_at >= thirty_days_ago
+        )
+
+        result = await db.execute(stats_query)
+        stats_row = result.first()
+
+        # Test fetching a few actions
+        actions_query = select(EmailAction).where(
+            EmailAction.mailbox_id.in_(mailbox_ids),
+            EmailAction.created_at >= thirty_days_ago
+        ).order_by(EmailAction.created_at.desc()).limit(5)
+
+        result = await db.execute(actions_query)
+        actions = result.scalars().all()
+
+        return {
+            "success": True,
+            "mailbox_count": len(mailbox_ids),
+            "mailbox_ids": [str(m) for m in mailbox_ids],
+            "total_actions": total_actions,
+            "stats": {
+                "total": stats_row.total or 0 if stats_row else 0,
+                "archived": stats_row.archived or 0 if stats_row else 0,
+                "trashed": stats_row.trashed or 0 if stats_row else 0,
+                "undone": stats_row.undone or 0 if stats_row else 0
+            },
+            "recent_actions_count": len(actions),
+            "recent_actions": [
+                {
+                    "id": str(a.id),
+                    "from_address": a.from_address,
+                    "subject": a.subject,
+                    "action": a.action,
+                    "created_at": a.created_at.isoformat()
+                }
+                for a in actions
+            ]
+        }
+    except Exception as e:
+        import traceback
+        return {
+            "success": False,
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "traceback": traceback.format_exc()
+        }
+
+
 @router.get("/audit", response_class=HTMLResponse)
 async def audit_log_page(
     request: Request,
@@ -589,12 +683,22 @@ async def audit_log_page(
 
     result = await db.execute(stats_query)
     stats_row = result.first()
-    stats = {
-        "total": stats_row.total or 0,
-        "archived": stats_row.archived or 0,
-        "trashed": stats_row.trashed or 0,
-        "undone": stats_row.undone or 0
-    }
+
+    # Handle case where stats_row is None (no data)
+    if stats_row:
+        stats = {
+            "total": stats_row.total or 0,
+            "archived": stats_row.archived or 0,
+            "trashed": stats_row.trashed or 0,
+            "undone": stats_row.undone or 0
+        }
+    else:
+        stats = {
+            "total": 0,
+            "archived": 0,
+            "trashed": 0,
+            "undone": 0
+        }
 
     return templates.TemplateResponse(
         "portal/audit.html",
