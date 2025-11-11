@@ -683,12 +683,22 @@ async def audit_log_page(
 
     result = await db.execute(stats_query)
     stats_row = result.first()
-    stats = {
-        "total": stats_row.total or 0,
-        "archived": stats_row.archived or 0,
-        "trashed": stats_row.trashed or 0,
-        "undone": stats_row.undone or 0
-    }
+
+    # Handle case where stats_row is None (no data)
+    if stats_row:
+        stats = {
+            "total": stats_row.total or 0,
+            "archived": stats_row.archived or 0,
+            "trashed": stats_row.trashed or 0,
+            "undone": stats_row.undone or 0
+        }
+    else:
+        stats = {
+            "total": 0,
+            "archived": 0,
+            "trashed": 0,
+            "undone": 0
+        }
 
     return templates.TemplateResponse(
         "portal/audit.html",
