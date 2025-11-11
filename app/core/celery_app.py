@@ -102,19 +102,21 @@ celery_app.conf.beat_schedule = {
         "options": {"queue": "default"},
     },
 
-    # Monitor undo rate every 5 minutes (alert if classifier broken)
-    "monitor-undo-rate": {
-        "task": "app.tasks.analytics.monitor_undo_rate",
-        "schedule": crontab(minute="*/5"),  # Every 5 minutes
-        "options": {"queue": "default"},
-    },
+    # TODO: Add when implementing analytics module
+    # # Monitor undo rate every 5 minutes (alert if classifier broken)
+    # "monitor-undo-rate": {
+    #     "task": "app.tasks.analytics.monitor_undo_rate",
+    #     "schedule": crontab(minute="*/5"),  # Every 5 minutes
+    #     "options": {"queue": "default"},
+    # },
 
-    # Database cleanup daily at 2 AM UTC
-    "cleanup-old-data": {
-        "task": "app.tasks.maintenance.cleanup_old_data",
-        "schedule": crontab(hour="2", minute="0"),  # Daily at 2 AM
-        "options": {"queue": "default"},
-    },
+    # TODO: Add when implementing maintenance module
+    # # Database cleanup daily at 2 AM UTC
+    # "cleanup-old-data": {
+    #     "task": "app.tasks.maintenance.cleanup_old_data",
+    #     "schedule": crontab(hour="2", minute="0"),  # Daily at 2 AM
+    #     "options": {"queue": "default"},
+    # },
 
     # Reset monthly usage counters on 1st of each month at midnight UTC
     "reset-monthly-usage": {
@@ -145,8 +147,9 @@ celery_app.autodiscover_tasks([
     "app.tasks.ingest",
     "app.tasks.classify",
     "app.tasks.usage_reset",
-    "app.tasks.analytics",
-    "app.tasks.maintenance",
+    # TODO: Uncomment when implementing these modules
+    # "app.tasks.analytics",
+    # "app.tasks.maintenance",
 ])
 
 
