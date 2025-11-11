@@ -4,6 +4,55 @@ All notable decisions and changes to the Inbox Janitor project.
 
 ---
 
+## [2025-11-08] - Railway Worker Service Deployed ✅
+
+### 🎉 ALL RAILWAY SERVICES OPERATIONAL
+
+**Summary:** Confirmed all 4 Railway services are deployed and running in production environment.
+
+### Railway Architecture (Production)
+
+**Services Deployed:**
+1. ✅ **inbox-janitor** (Web Service)
+   - Deployed: 2 days ago via GitHub
+   - URL: `inbox-janitor-production-03fc.up.railway.app`
+   - Command: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+   - Status: Running (receives webhooks, serves web UI)
+
+2. ✅ **worker** (Celery Worker + Beat)
+   - Deployed: 2 days ago via GitHub
+   - Command: `celery -A app.core.celery_app worker --loglevel=info --beat --scheduler=celery.beat:PersistentScheduler`
+   - Status: Running (processes email classification tasks)
+
+3. ✅ **Postgres** (Database)
+   - Deployed: Last week via Docker Image
+   - Volume: `postgres-volume` (persistent storage)
+   - Status: Healthy (7.43ms latency)
+
+4. ✅ **Redis** (Message Broker + Cache)
+   - Deployed: 6 days ago via Docker Image
+   - Volume: `redis-volume` (persistent storage)
+   - Status: Healthy (64.48ms latency)
+
+**Environment Variables:**
+- Shared across web + worker services
+- DATABASE_URL, REDIS_URL, ENCRYPTION_KEY, GOOGLE_CLIENT_ID, OPENAI_API_KEY all configured
+
+### Current Issue Under Investigation
+
+**Symptom:** Audit page shows 0 email actions despite:
+- ✅ Webhooks being received (last webhook 30 min ago)
+- ✅ Worker service deployed and running
+- ✅ All health checks passing
+
+**Next Steps:**
+- [ ] Check worker service logs for task processing errors
+- [ ] Verify Redis connection from worker
+- [ ] Confirm tasks are reaching the worker queue
+- [ ] Test with manual webhook trigger
+
+---
+
 ## [2025-11-06] - Gmail Watch & Webhook Integration Complete ✅
 
 ### 🎉 REAL-TIME EMAIL PROCESSING NOW LIVE
