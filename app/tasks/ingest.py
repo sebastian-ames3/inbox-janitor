@@ -14,6 +14,7 @@ from uuid import UUID
 from sqlalchemy import select
 
 from app.core.celery_app import celery_app
+from app.core.celery_utils import run_async_task
 from app.core.database import AsyncSessionLocal
 from app.models.mailbox import Mailbox
 from app.modules.ingest.gmail_watch import renew_gmail_watch
@@ -96,7 +97,7 @@ def renew_all_gmail_watches():
         }
 
     # Run async function
-    return asyncio.run(_renew_all())
+    return run_async_task(_renew_all())
 
 
 @celery_app.task(name="app.tasks.ingest.fallback_poll_gmail")
@@ -202,7 +203,7 @@ def fallback_poll_gmail():
         }
 
     # Run async function
-    return asyncio.run(_poll_all())
+    return run_async_task(_poll_all())
 
 
 @celery_app.task(
@@ -401,4 +402,4 @@ def process_gmail_history(self, mailbox_id: str, history_id: str):
             raise self.retry(exc=e, countdown=retry_delay)
 
     # Run async function
-    return asyncio.run(_process())
+    return run_async_task(_process())

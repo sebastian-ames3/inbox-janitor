@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 from uuid import UUID
 
 from app.core.celery_app import celery_app
+from app.core.celery_utils import run_async_task
 
 logger = logging.getLogger(__name__)
 
@@ -312,7 +313,7 @@ def classify_email_tier1(self, mailbox_id: str, metadata_dict: dict):
             raise self.retry(exc=e, countdown=retry_delay)
 
     # Run async function
-    return asyncio.run(_classify())
+    return run_async_task(_classify())
 
 
 @celery_app.task(name="app.tasks.classify.batch_classify_emails")
@@ -376,4 +377,4 @@ def batch_classify_emails(mailbox_id: str, metadata_dicts: list[dict]):
         }
 
     # Run async function
-    return asyncio.run(_batch_classify())
+    return run_async_task(_batch_classify())
