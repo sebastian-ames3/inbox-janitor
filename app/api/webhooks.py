@@ -261,3 +261,47 @@ async def webhook_health():
         curl http://localhost:8000/webhooks/health
     """
     return {"status": "healthy", "service": "webhooks"}
+
+
+@router.post("/test-worker")
+async def test_worker_connection():
+    """
+    Test Celery worker connectivity (debugging endpoint).
+
+    Enqueues a simple test task to verify:
+    - Web service can enqueue tasks to Redis
+    - Worker can receive and process tasks
+    - End-to-end task processing works
+
+    Returns:
+        Task ID and instructions for checking worker logs
+
+    Usage:
+        curl -X POST https://inbox-janitor-production-03fc.up.railway.app/webhooks/test-worker
+    """
+    try:
+        from app.tasks import test_celery_connection
+
+        task = test_celery_connection.delay()
+
+        logger.info(
+            f"Test task enqueued: {task.id}",
+            extra={"task_id": task.id, "task_name": "test_celery_connection"}
+        )
+
+        return {
+            "success": True,
+            "task_id": task.id,
+            "message": "Test task enqueued successfully",
+            "instructions": "Check worker logs for: 'SUCCESS: Celery works! Test task executed successfully.'",
+            "task_name": "test_celery_connection",
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to enqueue test task: {e}", exc_info=True)
+
+        return {
+            "success": False,
+            "error": str(e),
+            "message": "Failed to enqueue test task. Check Redis connection or worker status.",
+        }

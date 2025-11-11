@@ -113,3 +113,41 @@ async def get_session_status(request: Request):
         "created_at": created_at,
         "session_data": dict(request.session),
     }
+
+
+@router.post("/trigger-celery-test")
+async def trigger_celery_test():
+    """
+    Trigger a test Celery task to verify worker connectivity.
+
+    This endpoint enqueues a simple test task that logs a message.
+    Check worker logs to verify the task was executed.
+
+    Returns:
+        Task ID and status
+
+    Usage:
+        curl -X POST http://localhost:8000/api/test/trigger-celery-test
+    """
+
+    # Allow in all environments for debugging worker connectivity
+    # (test task is harmless)
+
+    try:
+        from app.tasks import test_celery_connection
+
+        task = test_celery_connection.delay()
+
+        return {
+            "success": True,
+            "task_id": task.id,
+            "message": "Test task enqueued. Check worker logs for: 'SUCCESS: Celery works!'",
+            "task_name": "test_celery_connection",
+        }
+
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "message": "Failed to enqueue test task. Check Redis connection.",
+        }
