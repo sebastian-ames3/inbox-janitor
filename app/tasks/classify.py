@@ -326,6 +326,95 @@ def classify_email_tier1(self, mailbox_id: str, metadata_dict: dict):
     return run_async_task(_classify())
 
 
+@celery_app.task(
+    name="app.tasks.classify.classify_email_task",
+    bind=True,
+    max_retries=3,
+    default_retry_delay=30,
+)
+def classify_email_task(self, mailbox_id: str, message_id: str):
+    """
+    Fetch email metadata and classify email (wrapper for sampling endpoint).
+
+    This task fetches metadata from Gmail for a specific message, then
+    calls classify_email_tier1 to perform the classification.
+
+    Args:
+        mailbox_id: UUID of mailbox (as string)
+        message_id: Gmail message ID
+
+    Returns:
+        Dict with classification result
+
+    Raises:
+        Exception: Retries up to 3 times with exponential backoff
+
+    Usage:
+        # Enqueued by sample-and-classify endpoint
+        classify_email_task.delay(mailbox_id, message_id)
+    """
+    import asyncio
+
+    logger.info(
+        f"Fetching metadata and classifying email {message_id} for mailbox {mailbox_id}",
+        extra={
+            "mailbox_id": mailbox_id,
+            "message_id": message_id
+        }
+    )
+
+    async def _fetch_and_classify():
+        try:
+            # Fetch metadata from Gmail
+            from app.modules.ingest.metadata_extractor import extract_email_metadata
+
+            metadata = await extract_email_metadata(mailbox_id, message_id)
+
+            logger.info(
+                f"Fetched metadata for {message_id}, enqueueing classification",
+                extra={
+                    "message_id": message_id,
+                    "from_address": metadata.from_address,
+                    "subject": metadata.subject
+                }
+            )
+
+            # Enqueue classification task
+            classify_email_tier1.delay(mailbox_id, metadata.dict())
+
+            return {
+                "status": "success",
+                "message_id": message_id,
+                "message": "Metadata fetched, classification enqueued"
+            }
+
+        except Exception as e:
+            logger.error(
+                f"Failed to fetch metadata for {message_id}: {e}",
+                extra={
+                    "mailbox_id": mailbox_id,
+                    "message_id": message_id,
+                    "error": str(e)
+                }
+            )
+
+            # Log to Sentry
+            from app.core.sentry import capture_business_error
+            capture_business_error(e, context={
+                "mailbox_id": mailbox_id,
+                "message_id": message_id,
+                "error": "Metadata fetch failed",
+                "retry_count": self.request.retries,
+            })
+
+            # Retry with exponential backoff
+            retry_delay = 30 * (2 ** self.request.retries)
+            raise self.retry(exc=e, countdown=retry_delay)
+
+    # Run async function
+    return run_async_task(_fetch_and_classify())
+
+
 @celery_app.task(name="app.tasks.classify.batch_classify_emails")
 def batch_classify_emails(mailbox_id: str, metadata_dicts: list[dict]):
     """
