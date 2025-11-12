@@ -305,3 +305,186 @@ async def test_worker_connection():
             "error": str(e),
             "message": "Failed to enqueue test task. Check Redis connection or worker status.",
         }
+
+
+@router.post("/run-migration-007")
+async def run_migration_007():
+    """
+    TEMPORARY: Run migration 007 to clear polluted email_actions data.
+
+    This is a ONE-TIME endpoint that will be removed after use.
+    Drops the immutability trigger, truncates the table, and recreates the trigger.
+
+    WARNING: This deletes all email_actions data.
+
+    Usage:
+        curl -X POST https://inbox-janitor-production-03fc.up.railway.app/webhooks/run-migration-007
+    """
+    try:
+        from sqlalchemy import text
+        from app.core.database import engine
+
+        logger.info("Starting migration 007: Clear polluted email_actions data")
+
+        async with engine.begin() as conn:
+            # Drop immutability trigger
+            await conn.execute(text("""
+                DROP TRIGGER IF EXISTS email_actions_immutable ON email_actions;
+            """))
+            logger.info("Migration 007: Trigger dropped")
+
+            # Clear all data
+            await conn.execute(text("TRUNCATE email_actions;"))
+            logger.info("Migration 007: Table truncated")
+
+            # Recreate immutability trigger
+            await conn.execute(text("""
+                CREATE TRIGGER email_actions_immutable
+                BEFORE UPDATE OR DELETE ON email_actions
+                FOR EACH ROW EXECUTE FUNCTION prevent_email_action_modification();
+            """))
+            logger.info("Migration 007: Trigger recreated")
+
+            # Verify
+            result = await conn.execute(text("SELECT COUNT(*) FROM email_actions;"))
+            count = result.scalar()
+
+        logger.info(f"Migration 007 complete. Remaining rows: {count}")
+
+        return {
+            "success": True,
+            "message": "Migration 007 executed successfully",
+            "remaining_rows": count,
+            "note": "Database cleared and ready for re-classification"
+        }
+
+    except Exception as e:
+        logger.error(f"Migration 007 failed: {e}", exc_info=True)
+
+        import sentry_sdk
+        sentry_sdk.capture_exception(e, extra={
+            "migration": "007",
+            "error": "Failed to run migration"
+        })
+
+        return {
+            "success": False,
+            "error": str(e),
+            "message": "Migration 007 failed. Check logs for details."
+        }
+
+
+@router.post("/sample-and-classify")
+async def sample_and_classify(batch_size: int = 250):
+    """
+    Sample and classify random emails from Gmail backlog.
+
+    Enqueues classification tasks via Celery worker. Call repeatedly to process batches.
+
+    Args:
+        batch_size: Number of emails to enqueue (default: 250)
+
+    Returns:
+        Current distribution stats and progress
+
+    Usage:
+        curl -X POST "https://inbox-janitor-production-03fc.up.railway.app/webhooks/sample-and-classify?batch_size=250"
+    """
+    try:
+        import random
+        from sqlalchemy import select, func
+        from app.core.database import AsyncSessionLocal
+        from app.models.mailboxes import Mailbox
+        from app.models.email_actions import EmailAction
+        from app.modules.gmail.service import get_gmail_service
+        from app.tasks.classify import classify_email_task
+
+        logger.info(f"Sampling: batch_size={batch_size}")
+
+        async with AsyncSessionLocal() as session:
+            # Get active mailbox
+            result = await session.execute(
+                select(Mailbox).where(Mailbox.is_active == True).limit(1)
+            )
+            mailbox = result.scalar_one_or_none()
+
+            if not mailbox:
+                return {"success": False, "error": "No active mailbox found"}
+
+            logger.info(f"Using mailbox: {mailbox.email_address}")
+
+            # Fetch message IDs from Gmail
+            logger.info("Fetching message IDs from Gmail...")
+            gmail_service = await get_gmail_service(mailbox)
+
+            message_ids = []
+            page_token = None
+
+            # Fetch up to 5,000 message IDs (10 pages * 500)
+            for _ in range(10):
+                results = gmail_service.users().messages().list(
+                    userId='me',
+                    maxResults=500,
+                    pageToken=page_token
+                ).execute()
+
+                messages = results.get('messages', [])
+                message_ids.extend([msg['id'] for msg in messages])
+
+                page_token = results.get('nextPageToken')
+                if not page_token or len(message_ids) >= 5000:
+                    break
+
+            logger.info(f"Fetched {len(message_ids)} message IDs")
+
+            # Random sample for this batch
+            sample_ids = random.sample(message_ids, min(batch_size, len(message_ids)))
+
+            # Enqueue classification tasks
+            task_ids = []
+            for message_id in sample_ids:
+                task = classify_email_task.delay(str(mailbox.id), message_id)
+                task_ids.append(task.id)
+
+            logger.info(f"Enqueued {len(task_ids)} classification tasks")
+
+            # Get current distribution
+            dist_result = await session.execute(
+                select(
+                    EmailAction.action,
+                    func.count(EmailAction.id).label('count')
+                ).group_by(EmailAction.action)
+            )
+            distribution = {row.action: row.count for row in dist_result.all()}
+
+            total = sum(distribution.values())
+            percentages = {
+                action: f"{(count/total*100):.1f}%" if total > 0 else "0.0%"
+                for action, count in distribution.items()
+            }
+
+            return {
+                "success": True,
+                "batch_size": len(sample_ids),
+                "tasks_enqueued": len(task_ids),
+                "total_classified": total,
+                "distribution": distribution,
+                "percentages": percentages,
+                "message": f"Enqueued {len(task_ids)} tasks. Wait 2-3 minutes, then call again to see updated distribution.",
+                "target": "KEEP ~15%, REVIEW ~5%, ARCHIVE ~30%, TRASH ~50%"
+            }
+
+    except Exception as e:
+        logger.error(f"Sampling failed: {e}", exc_info=True)
+
+        import sentry_sdk
+        sentry_sdk.capture_exception(e, extra={
+            "batch_size": batch_size,
+            "error": "Sampling failed"
+        })
+
+        return {
+            "success": False,
+            "error": str(e),
+            "message": "Sampling failed. Check logs for details."
+        }
