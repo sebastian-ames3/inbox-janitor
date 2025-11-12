@@ -220,14 +220,14 @@ def process_gmail_history(self, mailbox_id: str, history_id: str):
     a push notification about new emails.
 
     Flow:
-    1. Fetch new message IDs from history.list()
-    2. For each message, extract metadata
-    3. Enqueue classification tasks (Task 5.0)
-    4. Update mailbox.last_history_id
+    1. Read stored last_history_id from database
+    2. Fetch new message IDs from history.list(startHistoryId=stored_id)
+    3. For each message, extract metadata and enqueue classification
+    4. Update mailbox.last_history_id to webhook's history_id
 
     Args:
         mailbox_id: UUID of mailbox (as string)
-        history_id: Gmail history ID to start from
+        history_id: NEW Gmail history ID from webhook (for updating DB after processing)
 
     Returns:
         Dict with processing stats
@@ -258,8 +258,41 @@ def process_gmail_history(self, mailbox_id: str, history_id: str):
         new_history_id = history_id
 
         try:
-            # Fetch new message IDs from history
-            message_ids = await fetch_new_emails_from_history(mailbox_id, history_id)
+            # CRITICAL FIX: Read the STORED last_history_id from database
+            # The history_id parameter is the NEW id from webhook, but we need
+            # to query Gmail starting from the PREVIOUS id (stored in DB)
+            async with AsyncSessionLocal() as session:
+                result = await session.execute(
+                    select(Mailbox).where(Mailbox.id == mailbox_id)
+                )
+                mailbox = result.scalar_one_or_none()
+
+                if not mailbox:
+                    logger.error(f"Mailbox {mailbox_id} not found")
+                    return {
+                        "status": "error",
+                        "messages_processed": 0,
+                        "messages_failed": 0,
+                        "mailbox_id": mailbox_id,
+                        "error": "Mailbox not found"
+                    }
+
+                stored_history_id = mailbox.last_history_id
+
+                if not stored_history_id:
+                    logger.warning(
+                        f"No last_history_id for mailbox {mailbox_id}. "
+                        "Using webhook history_id (may miss messages)."
+                    )
+                    stored_history_id = history_id
+
+            logger.info(
+                f"Fetching history for mailbox {mailbox_id}: "
+                f"stored_id={stored_history_id}, webhook_id={history_id}"
+            )
+
+            # Fetch new message IDs from history using STORED id
+            message_ids = await fetch_new_emails_from_history(mailbox_id, stored_history_id)
 
             logger.info(f"Found {len(message_ids)} new messages for mailbox {mailbox_id}")
 
