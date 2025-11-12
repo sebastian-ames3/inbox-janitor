@@ -23,8 +23,11 @@ EXCEPTION_KEYWORDS = [
     # Financial
     "receipt",
     "invoice",
-    "order",
+    "order confirmation",
+    "your order",
+    "order number",
     "payment",
+    "payment confirmation",
     "refund",
     "charge",
     "transaction",
@@ -50,14 +53,19 @@ EXCEPTION_KEYWORDS = [
 
     # Account/Security
     "password",
-    "security",
-    "verify",
-    "verification",
+    "password reset",
+    "security alert",
+    "security code",
+    "verify your",
+    "verification code",
     "2fa",
     "two-factor",
-    "login",
-    "account",
-    "reset",
+    "suspicious login",
+    "unusual activity",
+    "account suspended",
+    "account has been suspended",
+    "account locked",
+    "reset your password",
 
     # Important life events
     "medical",
@@ -70,12 +78,16 @@ EXCEPTION_KEYWORDS = [
 
     # Employment
     "interview",
-    "job",
-    "offer",
-    "application",
+    "job application",
+    "job offer",
+    "offer letter",
+    "offer of employment",
+    "employment offer",
     "resume",
     "hire",
+    "hiring",
     "onboard",
+    "onboarding",
 
     # Legal
     "legal",
