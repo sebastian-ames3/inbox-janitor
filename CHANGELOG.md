@@ -104,14 +104,14 @@ This catches Railway crash emails, GitHub notifications, etc.
 - **PR #63:** Merged and deployed to production
 - **CI/CD:** All tests passing (Run Tests, Lint, E2E Playwright)
 - **Health Check:** All services healthy
-- **Worker Status:** Paused (`WORKER_PAUSED=true`) awaiting small batch test
-- **Total Processed:** 18,723 emails (no new processing while paused)
+- **Worker Status:** Active and processing with new thresholds ✅
+- **Total Processed:** 18,728+ emails (classifier improvements deployed)
 
 ### Next Steps
 
 1. ✅ Merge PR #63 → **COMPLETE**
-2. ⏳ Remove `WORKER_PAUSED` env var to resume processing
-3. ⏳ Process small batch (~50-100 emails)
+2. ✅ Remove `WORKER_PAUSED` env var to resume processing → **COMPLETE**
+3. ⏳ Monitor small batch processing to verify new thresholds
 4. ⏳ Check audit page for new distribution
 5. ⏳ Review sample emails for misclassifications
 6. ⏳ If good → process full remaining backlog (~11K emails)

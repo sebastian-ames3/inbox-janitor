@@ -1,7 +1,7 @@
 # Inbox Janitor - Development Context
 
-**Last Updated:** 2025-11-11 (Evening Session)
-**Status:** Classifier Tuned & Deployed - Ready for Testing
+**Last Updated:** 2025-11-12
+**Status:** Classifier Active & Monitoring Performance
 **Current Phase:** Production Testing & Optimization (~360 Tests, 18.7K+ Emails Classified)
 
 ---
@@ -22,9 +22,10 @@
   - Fixed test failure (test_recent_email_with_low_confidence)
   - All CI checks passed, deployed to production
 
-**🚀 Current Milestone:** Test Classifier Improvements
-- [ ] Remove WORKER_PAUSED env var
-- [ ] Process small batch (~50-100 emails)
+**🚀 Current Milestone:** Monitor Classifier Performance
+- [x] Remove WORKER_PAUSED env var → **COMPLETE**
+- [x] Worker active with new thresholds → **COMPLETE**
+- [ ] Monitor classification distribution on incoming emails
 - [ ] Verify new distribution (target: ~15% KEEP, ~5% REVIEW, ~30% ARCHIVE, ~50% TRASH)
 - [ ] Review sample emails for misclassifications
 - [ ] Process remaining backlog (~11K emails) if distribution looks good
