@@ -305,3 +305,70 @@ async def test_worker_connection():
             "error": str(e),
             "message": "Failed to enqueue test task. Check Redis connection or worker status.",
         }
+
+
+@router.post("/run-migration-007")
+async def run_migration_007():
+    """
+    TEMPORARY: Run migration 007 to clear polluted email_actions data.
+
+    This is a ONE-TIME endpoint that will be removed after use.
+    It drops the immutability trigger, truncates the table, and recreates the trigger.
+
+    WARNING: This deletes all email_actions data (18,728 rows).
+
+    Usage:
+        curl -X POST https://inbox-janitor-production-03fc.up.railway.app/webhooks/run-migration-007
+    """
+    try:
+        from sqlalchemy import text
+        from app.core.database import engine
+
+        logger.info("Starting migration 007: Clear polluted email_actions data")
+
+        async with engine.begin() as conn:
+            # Drop immutability trigger
+            await conn.execute(text("""
+                DROP TRIGGER IF EXISTS email_actions_immutable ON email_actions;
+            """))
+            logger.info("Migration 007: Trigger dropped")
+
+            # Clear all data
+            await conn.execute(text("TRUNCATE email_actions;"))
+            logger.info("Migration 007: Table truncated")
+
+            # Recreate immutability trigger
+            await conn.execute(text("""
+                CREATE TRIGGER email_actions_immutable
+                BEFORE UPDATE OR DELETE ON email_actions
+                FOR EACH ROW EXECUTE FUNCTION prevent_email_action_modification();
+            """))
+            logger.info("Migration 007: Trigger recreated")
+
+            # Verify
+            result = await conn.execute(text("SELECT COUNT(*) FROM email_actions;"))
+            count = result.scalar()
+
+        logger.info(f"Migration 007 complete. Remaining rows: {count}")
+
+        return {
+            "success": True,
+            "message": "Migration 007 executed successfully",
+            "remaining_rows": count,
+            "note": "Database cleared and ready for re-classification"
+        }
+
+    except Exception as e:
+        logger.error(f"Migration 007 failed: {e}", exc_info=True)
+
+        import sentry_sdk
+        sentry_sdk.capture_exception(e, extra={
+            "migration": "007",
+            "error": "Failed to run migration"
+        })
+
+        return {
+            "success": False,
+            "error": str(e),
+            "message": "Migration 007 failed. Check logs for details."
+        }
