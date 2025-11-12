@@ -322,11 +322,11 @@ async def run_migration_007():
     """
     try:
         from sqlalchemy import text
-        from app.core.database import engine
+        from app.core.database import async_engine
 
         logger.info("Starting migration 007: Clear polluted email_actions data")
 
-        async with engine.begin() as conn:
+        async with async_engine.begin() as conn:
             # Drop immutability trigger
             await conn.execute(text("""
                 DROP TRIGGER IF EXISTS email_actions_immutable ON email_actions;
