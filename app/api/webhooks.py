@@ -395,7 +395,7 @@ async def sample_and_classify(batch_size: int = 250):
         from sqlalchemy import select, func
         from app.core.database import AsyncSessionLocal
         from app.models.mailbox import Mailbox
-        from app.models.email_actions import EmailAction
+        from app.models.email_action import EmailAction
         from app.modules.gmail.service import get_gmail_service
         from app.tasks.classify import classify_email_task
 
