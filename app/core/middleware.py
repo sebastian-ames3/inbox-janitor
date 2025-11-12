@@ -87,6 +87,8 @@ def configure_csrf(app: FastAPI) -> None:
             re.compile(r"^/health$"),
             re.compile(r"^/webhooks/gmail$"),  # Gmail Pub/Sub webhook
             re.compile(r"^/webhooks/test-worker$"),  # Worker diagnostic endpoint
+            re.compile(r"^/webhooks/run-migration-007$"),  # Temporary migration endpoint
+            re.compile(r"^/webhooks/sample-and-classify$"),  # Sampling endpoint
             re.compile(r"^/api/test/.*$"),  # Test-only endpoints (E2E auth)
         ],
     )
