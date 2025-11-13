@@ -6,28 +6,40 @@ All notable decisions and changes to the Inbox Janitor project.
 
 ## [2025-11-12 Late Evening] - Classifier Testing Resumed Successfully ✅ COMPLETE
 
-### 🎉 MAJOR SUCCESS: 743 Emails Classified with Excellent Distribution
+### 🎉 MAJOR SUCCESS: 1,995 Emails Classified - Quality Analysis Complete
 
-**Summary:** Fixed 6 critical bugs preventing classifier testing, reset usage limits, and successfully processed 743 emails with distribution very close to targets. Worker now fully operational.
+**Summary:** Fixed 6 critical bugs preventing classifier testing, reset usage limits, and successfully processed 1,995 emails with excellent TRASH/REVIEW performance. Identified one tuning opportunity: strengthen unsubscribe signal to reduce promotional emails in KEEP.
 
 ### Session Overview
 
 **Problem:** Previous session ended abruptly during classifier testing. Database was cleared but endpoint had multiple bugs preventing email processing.
 
-**Result:** Fixed all bugs through 6 PRs, successfully classified 743 emails in batches, achieved near-perfect distribution.
+**Result:** Fixed all bugs through 6 PRs, successfully classified 1,995 emails in multiple batches, performed quality analysis on audit page, identified one signal tuning opportunity.
 
-### Distribution Results (743 Emails)
+### Distribution Results (1,995 Emails)
 
 **Final Distribution:**
-- **TRASH: 50.6%** (376 emails) ✅ **Perfect!** Target: ~50%
-- **KEEP: 24.9%** (185 emails) - Target: ~15% (conservative, but safe)
-- **ARCHIVE: 23.0%** (171 emails) ✅ **Good!** Target: ~30%
-- **REVIEW: 1.5%** (11 emails) ✅ **Excellent!** Target: ~5%
+- **TRASH: 51.5%** (1,028 emails) ✅ **Perfect!** Target: ~50%
+- **KEEP: 24.9%** (497 emails) ⚠️ **Too High** - Target: ~15%
+- **ARCHIVE: 22.1%** (440 emails) ⚠️ **Slightly Low** - Target: ~30%
+- **REVIEW: 1.6%** (30 emails) ✅ **Excellent!** Target: ~5%
 
-**Progress from First Batch:**
-- TRASH: 54.6% → 50.6% (now spot-on target)
-- ARCHIVE: 19.5% → 23.0% (moving toward 30% target)
-- Distribution stabilizing across batches
+**Quality Analysis Results:**
+1. ✅ **TRASH looks good** - Promotional spam, social notifications correctly identified
+2. ⚠️ **KEEP has promotional emails** - Example: Bank of America loan ad should be ARCHIVE/TRASH
+3. ✅ **ARCHIVE looks good** - Receipts, confirmations, valuable content
+4. ✅ **REVIEW looks appropriate** - One-off emails from potentially valuable sources
+
+**Root Cause Identified:**
+- Unsubscribe header signal (+0.40) not strong enough to push commercial emails to ARCHIVE threshold (0.45)
+- Bank promotional emails getting protective treatment despite being ads
+- **Proposed Fix:** Increase `list_unsubscribe` signal from 0.40 → 0.55 to guarantee ARCHIVE for commercial emails
+
+**Progress Across Batches:**
+- Batch 1: 250 emails → TRASH: 54.6%, ARCHIVE: 19.5%
+- Batch 2: 493 total → TRASH: 50.6%, ARCHIVE: 23.0%
+- Final: 1,995 total → TRASH: 51.5%, ARCHIVE: 22.1%
+- Distribution stabilized, consistent performance
 
 ### Issues Fixed (PRs #75-80)
 
@@ -145,11 +157,14 @@ curl -X POST "https://inbox-janitor-production-03fc.up.railway.app/webhooks/rese
 2. ✅ All import bugs fixed → **COMPLETE**
 3. ✅ Usage limit reset → **COMPLETE**
 4. ✅ Worker processing successfully → **COMPLETE**
-5. ✅ 743 emails classified with good distribution → **COMPLETE**
-6. ⏳ Continue processing more batches to gather additional data
-7. ⏳ Review sample classifications on audit page
-8. ⏳ Consider tuning thresholds if needed (current performance very good)
-9. ⏳ Process remaining backlog (~11K emails) if distribution remains stable
+5. ✅ 1,995 emails classified → **COMPLETE**
+6. ✅ Quality analysis on audit page → **COMPLETE**
+7. ✅ Root cause identified (unsubscribe signal too weak) → **COMPLETE**
+8. 🎯 **NEXT SESSION:** Tune unsubscribe signal (0.40 → 0.55) in `app/modules/classifier/signals.py:87-90`
+9. ⏳ After tuning: Clear database and re-test with 500-1000 emails
+10. ⏳ Verify KEEP drops closer to 15% target (from 24.9%)
+11. ⏳ Verify ARCHIVE increases closer to 30% target (from 22.1%)
+12. ⏳ If distribution improves, process remaining backlog (~9K emails)
 
 ### Pull Requests
 

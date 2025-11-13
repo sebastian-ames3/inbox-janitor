@@ -1,41 +1,97 @@
 # Inbox Janitor - Development Context
 
 **Last Updated:** 2025-11-12
-**Status:** Classifier Active & Monitoring Performance
-**Current Phase:** Production Testing & Optimization (~360 Tests, 18.7K+ Emails Classified)
+**Status:** Classifier Tuning Required - Unsubscribe Signal Too Weak
+**Current Phase:** Production Testing & Optimization (~360 Tests, 20.7K+ Emails Classified)
 
 ---
 
 ## 📍 Project Status
 
-**✅ Recently Completed (2025-11-11):**
-- ✅ Email Processing Pipeline Fully Operational (PRs #56-62)
-  - Fixed 8 critical bugs (worker startup, Redis, AsyncIO event loop, audit page)
-  - Worker processed 18,723 emails successfully
-  - Audit page displaying all classifications
-- ✅ OpenAI API Funded (500 RPM, ~$0.003/email)
-- ✅ Audit Page Fixes (stats_row None, Jinja2 min() function)
-- ✅ Classifier Tuning Complete (PR #63 - Merged)
-  - Lowered thresholds: ARCHIVE 0.55→0.45, REVIEW 0.30→0.25
-  - Increased signal weights for Gmail categories (+0.10)
-  - Added automated_monitoring signal for Railway/GitHub emails (+0.50)
-  - Fixed test failure (test_recent_email_with_low_confidence)
-  - All CI checks passed, deployed to production
+**✅ Recently Completed (2025-11-12 Late Evening):**
+- ✅ Classifier Testing Session Complete (PRs #75-80)
+  - Fixed 6 critical bugs (import typos, missing functions, parameter types)
+  - Created reset-usage endpoint for testing workflow
+  - Processed 1,995 emails successfully
+  - Performed quality analysis on audit page
+- ✅ Distribution Results (1,995 emails):
+  - TRASH: 51.5% ✅ Perfect (target: ~50%)
+  - REVIEW: 1.6% ✅ Excellent (target: ~5%)
+  - KEEP: 24.9% ⚠️ Too High (target: ~15%)
+  - ARCHIVE: 22.1% ⚠️ Slightly Low (target: ~30%)
+- ✅ Root Cause Identified:
+  - Unsubscribe header signal (+0.40) too weak
+  - Promotional emails from banks getting KEEP instead of ARCHIVE
+  - Need to increase signal strength to 0.55
 
-**🚀 Current Milestone:** Monitor Classifier Performance
-- [x] Remove WORKER_PAUSED env var → **COMPLETE**
-- [x] Worker active with new thresholds → **COMPLETE**
-- [ ] Monitor classification distribution on incoming emails
-- [ ] Verify new distribution (target: ~15% KEEP, ~5% REVIEW, ~30% ARCHIVE, ~50% TRASH)
-- [ ] Review sample emails for misclassifications
-- [ ] Process remaining backlog (~11K emails) if distribution looks good
+**🚀 Current Milestone:** Tune Unsubscribe Signal
+- [x] Test classifier on 1,995 emails → **COMPLETE**
+- [x] Perform quality analysis → **COMPLETE**
+- [x] Identify root cause → **COMPLETE**
+- [ ] **NEXT:** Increase unsubscribe signal from 0.40 → 0.55
+- [ ] Clear database and re-test with 500-1000 emails
+- [ ] Verify KEEP drops closer to 15% target
+- [ ] Verify ARCHIVE increases closer to 30% target
+- [ ] Process remaining backlog (~9K emails) if improved
 
-**⏭️ Next Up:**
+**⏭️ After Classifier Tuning:**
 - PRD 0003: Action Execution Engine (archive/trash, quarantine, undo)
 - Stripe billing integration
 - Weekly digest emails
 
 **📚 Full History:** See [CHANGELOG.md](CHANGELOG.md) for detailed completion records.
+
+---
+
+## 🧪 Classifier Testing Workflow
+
+**Use these commands for batch email classification testing:**
+
+### Check Current Distribution (No Processing)
+```bash
+curl -X POST "https://inbox-janitor-production-03fc.up.railway.app/webhooks/sample-and-classify?batch_size=0"
+```
+Returns current classification distribution without enqueueing new tasks.
+
+### Classify Batch of Emails
+```bash
+# Classify 250 emails (recommended batch size)
+curl -X POST "https://inbox-janitor-production-03fc.up.railway.app/webhooks/sample-and-classify?batch_size=250"
+
+# Classify 500 emails (larger batch)
+curl -X POST "https://inbox-janitor-production-03fc.up.railway.app/webhooks/sample-and-classify?batch_size=500"
+```
+Randomly samples emails from Gmail and enqueues classification tasks. Wait 2-3 minutes for processing.
+
+### Reset Usage Counters (Testing Only)
+```bash
+curl -X POST "https://inbox-janitor-production-03fc.up.railway.app/webhooks/reset-usage"
+```
+Clears `emails_processed_this_month` and `ai_cost_this_month` counters in user_settings table.
+
+### Clear Database for Fresh Test
+```bash
+curl -X POST "https://inbox-janitor-production-03fc.up.railway.app/webhooks/run-migration-007"
+```
+Truncates email_actions table, drops/recreates immutability trigger. Use before major re-tests.
+
+### View Classifications
+```
+https://inbox-janitor-production-03fc.up.railway.app/audit
+```
+Audit page shows all classifications with filters for action type, sender, date range.
+
+### Workflow for Testing Signal Changes
+1. Make code changes (e.g., tune signal weights in `signals.py`)
+2. Create PR, wait for CI checks, merge
+3. Verify Railway deployment succeeds
+4. Clear database: `curl -X POST .../run-migration-007`
+5. Reset usage: `curl -X POST .../reset-usage`
+6. Classify batch: `curl -X POST .../sample-and-classify?batch_size=500`
+7. Wait 2-3 minutes for processing
+8. Check distribution: `curl -X POST .../sample-and-classify?batch_size=0`
+9. Review quality on audit page
+10. Repeat steps 6-9 for multiple batches if needed
 
 ---
 
