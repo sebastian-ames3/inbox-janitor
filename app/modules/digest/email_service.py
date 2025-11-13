@@ -112,61 +112,74 @@ async def send_email(
         ... )
         True
     """
-    try:
-        # Sanitize and validate recipient
-        to_sanitized = sanitize_email_header(to)
-        if not validate_email(to_sanitized):
-            print(f"[Email Service] Invalid email address: {to}")
+    import asyncio
+
+    def _send_email_sync():
+        """Synchronous email sending function to run in thread pool."""
+        try:
+            # Sanitize and validate recipient
+            to_sanitized = sanitize_email_header(to)
+            if not validate_email(to_sanitized):
+                print(f"[Email Service] Invalid email address: {to}")
+                return False
+
+            # Sanitize subject
+            subject_sanitized = sanitize_email_header(subject)
+
+            # Use default from email if not provided
+            nonlocal from_email
+            if not from_email:
+                from_email = settings.FROM_EMAIL or "noreply@inboxjanitor.com"
+
+            from_sanitized = sanitize_email_header(from_email)
+
+            # Sanitize reply-to if provided
+            reply_to_sanitized = None
+            if reply_to:
+                reply_to_sanitized = sanitize_email_header(reply_to)
+
+            # Get Postmark client
+            client = get_postmark_client()
+
+            # Send email (synchronous call)
+            response = client.emails.send(
+                From=from_sanitized,
+                To=to_sanitized,
+                Subject=subject_sanitized,
+                HtmlBody=html_body,
+                TextBody=text_body,
+                ReplyTo=reply_to_sanitized,
+                Tag=tag,
+                TrackOpens=True,  # Track opens for engagement metrics
+                TrackLinks="HtmlOnly"  # Track clicks in HTML emails only
+            )
+
+            # Log success
+            print(f"[Email Service] Email sent to {to_sanitized}: {subject_sanitized}")
+            print(f"[Email Service] Postmark MessageID: {response['MessageID']}")
+
+            return True
+
+        except Exception as e:
+            # Log error (but NOT the email content - could contain sensitive data)
+            print(f"[Email Service] Failed to send email to {to}: {str(e)}")
+
+            # Report to Sentry if configured
+            try:
+                import sentry_sdk
+                sentry_sdk.capture_exception(e)
+            except Exception:
+                pass  # Sentry not configured, ignore
+
             return False
 
-        # Sanitize subject
-        subject_sanitized = sanitize_email_header(subject)
-
-        # Use default from email if not provided
-        if not from_email:
-            from_email = settings.FROM_EMAIL or "noreply@inboxjanitor.com"
-
-        from_sanitized = sanitize_email_header(from_email)
-
-        # Sanitize reply-to if provided
-        reply_to_sanitized = None
-        if reply_to:
-            reply_to_sanitized = sanitize_email_header(reply_to)
-
-        # Get Postmark client
-        client = get_postmark_client()
-
-        # Send email
-        response = client.emails.send(
-            From=from_sanitized,
-            To=to_sanitized,
-            Subject=subject_sanitized,
-            HtmlBody=html_body,
-            TextBody=text_body,
-            ReplyTo=reply_to_sanitized,
-            Tag=tag,
-            TrackOpens=True,  # Track opens for engagement metrics
-            TrackLinks="HtmlOnly"  # Track clicks in HTML emails only
-        )
-
-        # Log success
-        print(f"[Email Service] Email sent to {to_sanitized}: {subject_sanitized}")
-        print(f"[Email Service] Postmark MessageID: {response['MessageID']}")
-
-        return True
-
-    except Exception as e:
-        # Log error (but NOT the email content - could contain sensitive data)
-        print(f"[Email Service] Failed to send email to {to}: {str(e)}")
-
-        # Report to Sentry if configured
-        try:
-            import sentry_sdk
-            sentry_sdk.capture_exception(e)
-        except Exception:
-            pass  # Sentry not configured, ignore
-
-        return False
+    # Run synchronous Postmark call in thread pool to avoid blocking event loop
+    try:
+        return await asyncio.to_thread(_send_email_sync)
+    except AttributeError:
+        # Python <3.9 doesn't have asyncio.to_thread, fall back to run_in_executor
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, _send_email_sync)
 
 
 async def send_bulk_emails(emails: list[dict]) -> dict:
@@ -188,55 +201,67 @@ async def send_bulk_emails(emails: list[dict]) -> dict:
         ... ])
         {'success': 2, 'failed': []}
     """
-    try:
-        client = get_postmark_client()
+    import asyncio
 
-        # Build batch payload
-        batch = []
-        for email in emails:
-            # Sanitize each email
-            to_sanitized = sanitize_email_header(email['to'])
-            if not validate_email(to_sanitized):
-                print(f"[Email Service] Skipping invalid email: {email['to']}")
-                continue
-
-            batch.append({
-                'From': sanitize_email_header(email.get('from_email', settings.FROM_EMAIL or "noreply@inboxjanitor.com")),
-                'To': to_sanitized,
-                'Subject': sanitize_email_header(email['subject']),
-                'HtmlBody': email['html_body'],
-                'TextBody': email['text_body'],
-                'Tag': email.get('tag', 'bulk'),
-                'TrackOpens': True,
-                'TrackLinks': 'HtmlOnly'
-            })
-
-        # Send batch
-        if not batch:
-            return {'success': 0, 'failed': []}
-
-        responses = client.emails.send_batch(*batch)
-
-        # Count successes and failures
-        success_count = sum(1 for r in responses if r.get('ErrorCode') == 0)
-        failed = [r['To'] for r in responses if r.get('ErrorCode') != 0]
-
-        print(f"[Email Service] Bulk send complete: {success_count} success, {len(failed)} failed")
-
-        return {
-            'success': success_count,
-            'failed': failed
-        }
-
-    except Exception as e:
-        print(f"[Email Service] Bulk send failed: {str(e)}")
+    def _send_bulk_emails_sync():
+        """Synchronous bulk email sending function to run in thread pool."""
         try:
-            import sentry_sdk
-            sentry_sdk.capture_exception(e)
-        except Exception:
-            pass
+            client = get_postmark_client()
 
-        return {'success': 0, 'failed': [email['to'] for email in emails]}
+            # Build batch payload
+            batch = []
+            for email in emails:
+                # Sanitize each email
+                to_sanitized = sanitize_email_header(email['to'])
+                if not validate_email(to_sanitized):
+                    print(f"[Email Service] Skipping invalid email: {email['to']}")
+                    continue
+
+                batch.append({
+                    'From': sanitize_email_header(email.get('from_email', settings.FROM_EMAIL or "noreply@inboxjanitor.com")),
+                    'To': to_sanitized,
+                    'Subject': sanitize_email_header(email['subject']),
+                    'HtmlBody': email['html_body'],
+                    'TextBody': email['text_body'],
+                    'Tag': email.get('tag', 'bulk'),
+                    'TrackOpens': True,
+                    'TrackLinks': 'HtmlOnly'
+                })
+
+            # Send batch
+            if not batch:
+                return {'success': 0, 'failed': []}
+
+            responses = client.emails.send_batch(*batch)
+
+            # Count successes and failures
+            success_count = sum(1 for r in responses if r.get('ErrorCode') == 0)
+            failed = [r['To'] for r in responses if r.get('ErrorCode') != 0]
+
+            print(f"[Email Service] Bulk send complete: {success_count} success, {len(failed)} failed")
+
+            return {
+                'success': success_count,
+                'failed': failed
+            }
+
+        except Exception as e:
+            print(f"[Email Service] Bulk send failed: {str(e)}")
+            try:
+                import sentry_sdk
+                sentry_sdk.capture_exception(e)
+            except Exception:
+                pass
+
+            return {'success': 0, 'failed': [email['to'] for email in emails]}
+
+    # Run synchronous Postmark call in thread pool to avoid blocking event loop
+    try:
+        return await asyncio.to_thread(_send_bulk_emails_sync)
+    except AttributeError:
+        # Python <3.9 doesn't have asyncio.to_thread, fall back to run_in_executor
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, _send_bulk_emails_sync)
 
 
 # ============================================================================

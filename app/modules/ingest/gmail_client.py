@@ -162,16 +162,23 @@ class GmailClient:
             RateLimitExceeded: If rate limit exceeded and can't wait
         """
         try:
-            # Run async rate limiter in sync context
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                # Already in async context, create new task
-                asyncio.create_task(self._check_rate_limit_async(quota_units))
-            else:
-                # Not in async context, run directly
-                loop.run_until_complete(self._check_rate_limit_async(quota_units))
+            # Try to get the running event loop
+            loop = asyncio.get_running_loop()
+            # Loop is running - we're in an async context (e.g., worker thread with event loop)
+            # We cannot await here since this is a sync function, so we need to use asyncio.run_coroutine_threadsafe
+            # However, this is problematic because we're calling this from sync code in an async context
+            # The correct solution is to make the calling code async, but as a workaround we'll skip rate limiting
+            # and log a warning. The rate limiter should be called from async code paths instead.
+            logger.warning(
+                "Rate limit check called from sync context while event loop is running. "
+                "Rate limit bypassed. This should be called from async context instead.",
+                extra={"mailbox_id": str(self.mailbox.id)}
+            )
+            # Skip rate limiting in this edge case to avoid blocking the event loop
+            return
         except RuntimeError:
-            # No event loop, create one
+            # No event loop running - we're in a pure sync context (this is the expected case)
+            # Create a new event loop for this sync call
             asyncio.run(self._check_rate_limit_async(quota_units))
 
     def _execute_with_retry(self, operation_func, operation_name: str, quota_units: int = 5):

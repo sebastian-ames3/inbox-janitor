@@ -63,7 +63,7 @@ class RateLimiter:
     async def _get_redis(self) -> redis.Redis:
         """Get Redis client (lazy initialization)."""
         if not self._redis:
-            self._redis = await redis.from_url(
+            self._redis = redis.from_url(
                 self.redis_url,
                 encoding="utf-8",
                 decode_responses=True

@@ -4,6 +4,65 @@ All notable decisions and changes to the Inbox Janitor project.
 
 ---
 
+## [2025-11-12 Evening] - Classifier Optimization Round 2 (In Progress) 🔄
+
+### 🎯 GOAL: Further Tune Distribution to Match Targets
+
+**Summary:** After testing tuned classifier on 1,995 emails, found unsubscribe signal too weak. Attempted signal strength increase (0.40 → 0.55), but this pushed emails to TRASH instead of ARCHIVE. Created export-samples endpoint to analyze KEEP emails and identify root causes.
+
+### Test Results
+
+**Round 1: Post-Threshold Tuning (1,995 emails)**
+- TRASH: 51.5% ✅ Perfect (target: ~50%)
+- REVIEW: 1.6% ✅ Excellent (target: ~5%)
+- KEEP: 24.9% ⚠️ Too High (target: ~15%)
+- ARCHIVE: 22.1% ⚠️ Too Low (target: ~30%)
+
+**Hypothesis:** Promotional emails from banks with unsubscribe headers getting KEEP instead of ARCHIVE. Unsubscribe signal (+0.40) too weak.
+
+**Round 2: Increased Unsubscribe Signal to 0.55 (500 emails, PR #82)**
+- TRASH: 54.2% ✅ (+2.7%)
+- REVIEW: 0.4% ✅ (-1.2%)
+- KEEP: 25.2% ❌ Still too high (+0.3%)
+- ARCHIVE: 20.2% ❌ Decreased! (-1.9%)
+
+**Finding:** Increasing unsubscribe signal pushed emails over TRASH threshold (0.85 confidence) instead of landing in ARCHIVE range (0.45-0.84). Signal increase alone insufficient.
+
+### Changes Merged
+
+**PR #82: Tune classifier - Increase unsubscribe signal 0.40 → 0.55** ✅
+- File: `app/modules/classifier/signals.py:89`
+- Changed `List-Unsubscribe` signal from 0.40 to 0.55
+- Updated docstring to reflect "strong trash/archive signal"
+- Result: Marginal change, not the right approach
+
+**PR #83: Add export-samples endpoint** ✅
+- File: `app/api/webhooks.py:545-607`
+- New GET endpoint: `/webhooks/export-samples?action=keep&limit=50`
+- Returns email metadata, classification signals, confidence, reason
+- Enables deep analysis of misclassifications
+- Usage: `curl "https://.../webhooks/export-samples?action=keep&limit=50"`
+
+### Current Status: PAUSED - Analysis Needed
+
+**Next Steps:**
+1. ⏸️ Wait for Railway deployment of export-samples endpoint
+2. Fetch KEEP email samples and analyze patterns:
+   - What types of emails are getting KEEP?
+   - What signals are they missing?
+   - Are thresholds the issue, or signals?
+3. Identify root cause (likely):
+   - Specific sender types (newsletters, bank updates, services)
+   - Missing signal for transactional-but-promotional emails
+   - Need to adjust ARCHIVE threshold or add new signals
+4. Propose targeted fixes based on actual data
+
+**Deployment:** Export-samples endpoint merged to main, deploying to Railway.
+
+**Status:** Paused for user review and code edits. Ready to analyze KEEP samples once deployment complete.
+
+---
+
 ## [2025-11-11 Evening] - Classifier Tuned Based on Real Data ✅ COMPLETE
 
 ### 🎯 MAJOR IMPROVEMENT: Classifier Threshold Tuning

@@ -1,41 +1,107 @@
 # Inbox Janitor - Development Context
 
-**Last Updated:** 2025-11-12
-**Status:** Classifier Active & Monitoring Performance
-**Current Phase:** Production Testing & Optimization (~360 Tests, 18.7K+ Emails Classified)
+**Last Updated:** 2025-11-12 (Evening)
+**Status:** Classifier Optimization Round 2 - Analysis Phase
+**Current Phase:** Production Testing & Optimization (500 emails tested with new signal)
 
 ---
 
 ## 📍 Project Status
 
-**✅ Recently Completed (2025-11-11):**
-- ✅ Email Processing Pipeline Fully Operational (PRs #56-62)
-  - Fixed 8 critical bugs (worker startup, Redis, AsyncIO event loop, audit page)
-  - Worker processed 18,723 emails successfully
-  - Audit page displaying all classifications
-- ✅ OpenAI API Funded (500 RPM, ~$0.003/email)
-- ✅ Audit Page Fixes (stats_row None, Jinja2 min() function)
-- ✅ Classifier Tuning Complete (PR #63 - Merged)
-  - Lowered thresholds: ARCHIVE 0.55→0.45, REVIEW 0.30→0.25
-  - Increased signal weights for Gmail categories (+0.10)
-  - Added automated_monitoring signal for Railway/GitHub emails (+0.50)
-  - Fixed test failure (test_recent_email_with_low_confidence)
+**✅ Recently Completed (2025-11-12 Evening):**
+- ✅ Classifier Testing Round 2 (PRs #82-83)
+  - Tested 1,995 emails with tuned classifier: KEEP 24.9% (still too high), ARCHIVE 22.1% (too low)
+  - Increased unsubscribe signal 0.40→0.55 (PR #82)
+  - Re-tested with 500 emails: KEEP 25.2%, ARCHIVE 20.2% (wrong direction!)
+  - Root cause: Signal increase pushed emails to TRASH (>0.85) instead of ARCHIVE (0.45-0.84)
+  - Created export-samples endpoint for deep analysis (PR #83)
   - All CI checks passed, deployed to production
 
-**🚀 Current Milestone:** Monitor Classifier Performance
-- [x] Remove WORKER_PAUSED env var → **COMPLETE**
-- [x] Worker active with new thresholds → **COMPLETE**
-- [ ] Monitor classification distribution on incoming emails
-- [ ] Verify new distribution (target: ~15% KEEP, ~5% REVIEW, ~30% ARCHIVE, ~50% TRASH)
-- [ ] Review sample emails for misclassifications
-- [ ] Process remaining backlog (~11K emails) if distribution looks good
+**🚀 Current Milestone:** Analyze KEEP Emails and Tune Classifier (PAUSED)
+- [x] Test classifier with 1,995 emails → **COMPLETE** (KEEP 24.9%, target: 15%)
+- [x] Identify hypothesis (unsubscribe signal too weak) → **COMPLETE**
+- [x] Attempt signal increase 0.40→0.55 → **COMPLETE** (didn't work as expected)
+- [x] Re-test with 500 emails → **COMPLETE** (KEEP still 25.2%)
+- [x] Create export-samples endpoint → **COMPLETE** (PR #83 merged)
+- [ ] **⏸️ PAUSED:** Wait for Railway deployment
+- [ ] **NEXT:** Fetch KEEP samples: `curl ".../webhooks/export-samples?action=keep&limit=50"`
+- [ ] **NEXT:** Analyze patterns in KEEP emails (sender types, missing signals)
+- [ ] **NEXT:** Propose targeted fixes (new signals? threshold adjustments? different approach?)
+- [ ] Test fixes with fresh batch
+- [ ] Process remaining backlog (~9K emails) if distribution improves
 
-**⏭️ Next Up:**
+**⏭️ After Classifier Optimization:**
 - PRD 0003: Action Execution Engine (archive/trash, quarantine, undo)
 - Stripe billing integration
 - Weekly digest emails
 
 **📚 Full History:** See [CHANGELOG.md](CHANGELOG.md) for detailed completion records.
+
+---
+
+## 🧪 Classifier Testing & Analysis Workflow
+
+**Use these commands for batch email classification testing and analysis:**
+
+### Check Current Distribution (No Processing)
+```bash
+curl -X POST "https://inbox-janitor-production-03fc.up.railway.app/webhooks/sample-and-classify?batch_size=0"
+```
+Returns current classification distribution without enqueueing new tasks.
+
+### Classify Batch of Emails
+```bash
+# Classify 250 emails (recommended batch size)
+curl -X POST "https://inbox-janitor-production-03fc.up.railway.app/webhooks/sample-and-classify?batch_size=250"
+
+# Classify 500 emails (larger batch)
+curl -X POST "https://inbox-janitor-production-03fc.up.railway.app/webhooks/sample-and-classify?batch_size=500"
+```
+Randomly samples emails from Gmail and enqueues classification tasks. Wait 2-3 minutes for processing.
+
+### Export Email Samples for Analysis (NEW - PR #83)
+```bash
+# Export 50 KEEP emails with full classification metadata
+curl "https://inbox-janitor-production-03fc.up.railway.app/webhooks/export-samples?action=keep&limit=50"
+
+# Export ARCHIVE samples
+curl "https://inbox-janitor-production-03fc.up.railway.app/webhooks/export-samples?action=archive&limit=30"
+
+# Export TRASH samples
+curl "https://inbox-janitor-production-03fc.up.railway.app/webhooks/export-samples?action=trash&limit=20"
+```
+Returns email metadata, classification signals, confidence scores, and reasons. Critical for identifying misclassification patterns.
+
+### Reset Usage Counters (Testing Only)
+```bash
+curl -X POST "https://inbox-janitor-production-03fc.up.railway.app/webhooks/reset-usage"
+```
+Clears `emails_processed_this_month` and `ai_cost_this_month` counters in user_settings table.
+
+### Clear Database for Fresh Test
+```bash
+curl -X POST "https://inbox-janitor-production-03fc.up.railway.app/webhooks/run-migration-007"
+```
+Truncates email_actions table, drops/recreates immutability trigger. Use before major re-tests.
+
+### View Classifications (Web UI)
+```
+https://inbox-janitor-production-03fc.up.railway.app/audit
+```
+Audit page shows all classifications with filters for action type, sender, date range.
+
+### Workflow for Testing Signal/Threshold Changes
+1. Make code changes (e.g., tune signal weights in `signals.py` or thresholds in `tier1.py`)
+2. Create PR, wait for CI checks, merge
+3. Verify Railway deployment succeeds
+4. Clear database: `curl -X POST .../run-migration-007`
+5. Reset usage: `curl -X POST .../reset-usage`
+6. Classify batch: `curl -X POST .../sample-and-classify?batch_size=500`
+7. Wait 2-3 minutes for processing
+8. Check distribution: `curl -X POST .../sample-and-classify?batch_size=0`
+9. **NEW:** Export samples for analysis: `curl ".../export-samples?action=keep&limit=50"`
+10. Review quality on audit page
+11. Repeat steps 6-10 for multiple batches if needed
 
 ---
 
