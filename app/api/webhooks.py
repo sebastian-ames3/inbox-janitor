@@ -374,6 +374,58 @@ async def run_migration_007():
         }
 
 
+@router.post("/reset-usage")
+async def reset_usage():
+    """
+    TEMPORARY: Reset monthly usage counter for testing.
+
+    Resets emails_processed_this_month to 0 for all users.
+
+    Usage:
+        curl -X POST https://inbox-janitor-production-03fc.up.railway.app/webhooks/reset-usage
+    """
+    try:
+        from sqlalchemy import text, update
+        from app.core.database import AsyncSessionLocal
+        from app.models.user_settings import UserSettings
+
+        logger.info("Starting usage reset")
+
+        async with AsyncSessionLocal() as session:
+            # Reset usage counters
+            result = await session.execute(
+                update(UserSettings).values(
+                    emails_processed_this_month=0,
+                    ai_cost_this_month=0.0
+                )
+            )
+            await session.commit()
+
+            rows_updated = result.rowcount
+
+        logger.info(f"Usage reset complete. Updated {rows_updated} users")
+
+        return {
+            "success": True,
+            "message": "Usage counters reset successfully",
+            "users_updated": rows_updated
+        }
+
+    except Exception as e:
+        logger.error(f"Usage reset failed: {e}", exc_info=True)
+
+        import sentry_sdk
+        sentry_sdk.capture_exception(e, extra={
+            "error": "Failed to reset usage"
+        })
+
+        return {
+            "success": False,
+            "error": str(e),
+            "message": "Usage reset failed. Check logs for details."
+        }
+
+
 @router.post("/sample-and-classify")
 async def sample_and_classify(batch_size: int = 250):
     """
