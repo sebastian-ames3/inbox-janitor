@@ -107,9 +107,10 @@ class TestGmailClientInit:
 class TestListMessages:
     """Test list_messages method."""
 
+    @pytest.mark.asyncio
     @patch("app.modules.ingest.gmail_client.decrypt_token")
     @patch("app.modules.ingest.gmail_client.build")
-    def test_list_messages_basic(self, mock_build, mock_decrypt, mock_mailbox, mock_rate_limiter):
+    async def test_list_messages_basic(self, mock_build, mock_decrypt, mock_mailbox, mock_rate_limiter):
         """Test basic list_messages call."""
         # Setup
         mock_decrypt.return_value = "plaintext_token"
@@ -127,7 +128,7 @@ class TestListMessages:
 
         # Execute
         client = GmailClient(mock_mailbox, rate_limiter=mock_rate_limiter)
-        result = client.list_messages(query="in:inbox", max_results=100)
+        result = await client.list_messages(query="in:inbox", max_results=100)
 
         # Verify
         assert result == mock_response
@@ -135,9 +136,10 @@ class TestListMessages:
         # Verify list was called (don't check call count due to mock chaining)
         assert mock_service.users().messages().list().execute.called
 
+    @pytest.mark.asyncio
     @patch("app.modules.ingest.gmail_client.decrypt_token")
     @patch("app.modules.ingest.gmail_client.build")
-    def test_list_messages_with_pagination(self, mock_build, mock_decrypt, mock_mailbox, mock_rate_limiter):
+    async def test_list_messages_with_pagination(self, mock_build, mock_decrypt, mock_mailbox, mock_rate_limiter):
         """Test list_messages with page_token."""
         # Setup
         mock_decrypt.return_value = "plaintext_token"
@@ -152,14 +154,15 @@ class TestListMessages:
 
         # Execute
         client = GmailClient(mock_mailbox, rate_limiter=mock_rate_limiter)
-        result = client.list_messages(page_token="prev_token_abc")
+        result = await client.list_messages(page_token="prev_token_abc")
 
         # Verify
         assert result["nextPageToken"] == "next_token_123"
 
+    @pytest.mark.asyncio
     @patch("app.modules.ingest.gmail_client.decrypt_token")
     @patch("app.modules.ingest.gmail_client.build")
-    def test_list_messages_with_label_ids(self, mock_build, mock_decrypt, mock_mailbox, mock_rate_limiter):
+    async def test_list_messages_with_label_ids(self, mock_build, mock_decrypt, mock_mailbox, mock_rate_limiter):
         """Test list_messages with label_ids filter."""
         # Setup
         mock_decrypt.return_value = "plaintext_token"
@@ -171,7 +174,7 @@ class TestListMessages:
 
         # Execute
         client = GmailClient(mock_mailbox, rate_limiter=mock_rate_limiter)
-        result = client.list_messages(label_ids=["INBOX", "CATEGORY_PROMOTIONS"])
+        result = await client.list_messages(label_ids=["INBOX", "CATEGORY_PROMOTIONS"])
 
         # Verify
         assert result["resultSizeEstimate"] == 0
@@ -540,3 +543,53 @@ class TestErrorHandling:
         client = GmailClient(mock_mailbox, rate_limiter=mock_rate_limiter, max_retries=1)
         with pytest.raises(GmailAPIError, match="Resource not found"):
             client.get_message(message_id="nonexistent")
+
+
+# Test rate limiting (CRITICAL - PRD-0004)
+
+class TestRateLimiting:
+    """Test rate limiting enforcement (no bypass)."""
+
+    @pytest.mark.asyncio
+    @patch("app.modules.ingest.gmail_client.decrypt_token")
+    @patch("app.modules.ingest.gmail_client.build")
+    async def test_rate_limit_enforced_in_all_contexts(self, mock_build, mock_decrypt, mock_mailbox):
+        """Verify rate limiter is called in all contexts (no bypass)."""
+        # Setup
+        mock_decrypt.return_value = "plaintext_token"
+        mock_service = MagicMock()
+        mock_build.return_value = mock_service
+
+        mock_response = {"messages": [], "resultSizeEstimate": 0}
+        mock_service.users().messages().list().execute.return_value = mock_response
+
+        # Create mock rate limiter to track calls
+        mock_limiter = AsyncMock()
+        mock_limiter.check_and_increment = AsyncMock()
+
+        # Execute
+        client = GmailClient(mock_mailbox, rate_limiter=mock_limiter)
+        await client.list_messages(query="in:inbox")
+
+        # Verify rate limiter was called
+        assert mock_limiter.check_and_increment.called
+        assert mock_limiter.check_and_increment.call_count == 1
+        mock_limiter.check_and_increment.assert_called_with(
+            user_id=str(mock_mailbox.user_id),
+            quota_units=5
+        )
+
+    @pytest.mark.asyncio
+    async def test_gmail_client_requires_await(self, mock_mailbox, mock_rate_limiter):
+        """GmailClient methods must be awaited (not called synchronously)."""
+        client = GmailClient(mock_mailbox, rate_limiter=mock_rate_limiter)
+
+        # Calling without await returns a coroutine, not a result
+        result = client.list_messages()
+
+        # Verify it's a coroutine (not a dict)
+        import inspect
+        assert inspect.iscoroutine(result)
+
+        # Clean up the coroutine to avoid warnings
+        result.close()
