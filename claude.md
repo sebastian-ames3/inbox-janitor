@@ -1,45 +1,40 @@
 # Inbox Janitor - Development Context
 
-**Last Updated:** 2025-11-12 (Late Evening)
-**Status:** Critical Bugfixes Complete, Classifier Optimization Paused
-**Current Phase:** Production Testing & Optimization (async fixes deployed)
+**Last Updated:** 2025-11-12
+**Status:** Classifier Tuning Required - Unsubscribe Signal Too Weak
+**Current Phase:** Production Testing & Optimization (~360 Tests, 20.7K+ Emails Classified)
 
 ---
 
 ## 📍 Project Status
 
 **✅ Recently Completed (2025-11-12 Late Evening):**
-- ✅ **CRITICAL: Async/Await Bugfixes (PR #84)** 🐛
-  - Fixed Redis client initialization TypeError (OAuth login broken)
-  - Fixed re-authentication refresh token handling (returning users couldn't reconnect)
-  - Fixed rate limiting bypass in async contexts (quotas not enforced)
-  - Fixed email sending blocking event loop (FastAPI latency degraded)
-  - Impact: Core functionality restored (OAuth, rate limiting, email)
-  - All changes deployed to production
+- ✅ Classifier Testing Session Complete (PRs #75-80)
+  - Fixed 6 critical bugs (import typos, missing functions, parameter types)
+  - Created reset-usage endpoint for testing workflow
+  - Processed 1,995 emails successfully
+  - Performed quality analysis on audit page
+- ✅ Distribution Results (1,995 emails):
+  - TRASH: 51.5% ✅ Perfect (target: ~50%)
+  - REVIEW: 1.6% ✅ Excellent (target: ~5%)
+  - KEEP: 24.9% ⚠️ Too High (target: ~15%)
+  - ARCHIVE: 22.1% ⚠️ Slightly Low (target: ~30%)
+- ✅ Root Cause Identified:
+  - Unsubscribe header signal (+0.40) too weak
+  - Promotional emails from banks getting KEEP instead of ARCHIVE
+  - Need to increase signal strength to 0.55
 
-**✅ Completed Earlier (2025-11-12 Evening):**
-- ✅ Classifier Testing Round 2 (PRs #82-83)
-  - Tested 1,995 emails with tuned classifier: KEEP 24.9% (still too high), ARCHIVE 22.1% (too low)
-  - Increased unsubscribe signal 0.40→0.55 (PR #82)
-  - Re-tested with 500 emails: KEEP 25.2%, ARCHIVE 20.2% (wrong direction!)
-  - Root cause: Signal increase pushed emails to TRASH (>0.85) instead of ARCHIVE (0.45-0.84)
-  - Created export-samples endpoint for deep analysis (PR #83)
-  - All CI checks passed, deployed to production
+**🚀 Current Milestone:** Tune Unsubscribe Signal
+- [x] Test classifier on 1,995 emails → **COMPLETE**
+- [x] Perform quality analysis → **COMPLETE**
+- [x] Identify root cause → **COMPLETE**
+- [ ] **NEXT:** Increase unsubscribe signal from 0.40 → 0.55
+- [ ] Clear database and re-test with 500-1000 emails
+- [ ] Verify KEEP drops closer to 15% target
+- [ ] Verify ARCHIVE increases closer to 30% target
+- [ ] Process remaining backlog (~9K emails) if improved
 
-**🚀 Current Milestone:** Analyze KEEP Emails and Tune Classifier (PAUSED)
-- [x] Test classifier with 1,995 emails → **COMPLETE** (KEEP 24.9%, target: 15%)
-- [x] Identify hypothesis (unsubscribe signal too weak) → **COMPLETE**
-- [x] Attempt signal increase 0.40→0.55 → **COMPLETE** (didn't work as expected)
-- [x] Re-test with 500 emails → **COMPLETE** (KEEP still 25.2%)
-- [x] Create export-samples endpoint → **COMPLETE** (PR #83 merged)
-- [ ] **⏸️ PAUSED:** Wait for Railway deployment
-- [ ] **NEXT:** Fetch KEEP samples: `curl ".../webhooks/export-samples?action=keep&limit=50"`
-- [ ] **NEXT:** Analyze patterns in KEEP emails (sender types, missing signals)
-- [ ] **NEXT:** Propose targeted fixes (new signals? threshold adjustments? different approach?)
-- [ ] Test fixes with fresh batch
-- [ ] Process remaining backlog (~9K emails) if distribution improves
-
-**⏭️ After Classifier Optimization:**
+**⏭️ After Classifier Tuning:**
 - PRD 0003: Action Execution Engine (archive/trash, quarantine, undo)
 - Stripe billing integration
 - Weekly digest emails
@@ -48,9 +43,9 @@
 
 ---
 
-## 🧪 Classifier Testing & Analysis Workflow
+## 🧪 Classifier Testing Workflow
 
-**Use these commands for batch email classification testing and analysis:**
+**Use these commands for batch email classification testing:**
 
 ### Check Current Distribution (No Processing)
 ```bash
@@ -68,19 +63,6 @@ curl -X POST "https://inbox-janitor-production-03fc.up.railway.app/webhooks/samp
 ```
 Randomly samples emails from Gmail and enqueues classification tasks. Wait 2-3 minutes for processing.
 
-### Export Email Samples for Analysis (NEW - PR #83)
-```bash
-# Export 50 KEEP emails with full classification metadata
-curl "https://inbox-janitor-production-03fc.up.railway.app/webhooks/export-samples?action=keep&limit=50"
-
-# Export ARCHIVE samples
-curl "https://inbox-janitor-production-03fc.up.railway.app/webhooks/export-samples?action=archive&limit=30"
-
-# Export TRASH samples
-curl "https://inbox-janitor-production-03fc.up.railway.app/webhooks/export-samples?action=trash&limit=20"
-```
-Returns email metadata, classification signals, confidence scores, and reasons. Critical for identifying misclassification patterns.
-
 ### Reset Usage Counters (Testing Only)
 ```bash
 curl -X POST "https://inbox-janitor-production-03fc.up.railway.app/webhooks/reset-usage"
@@ -93,14 +75,14 @@ curl -X POST "https://inbox-janitor-production-03fc.up.railway.app/webhooks/run-
 ```
 Truncates email_actions table, drops/recreates immutability trigger. Use before major re-tests.
 
-### View Classifications (Web UI)
+### View Classifications
 ```
 https://inbox-janitor-production-03fc.up.railway.app/audit
 ```
 Audit page shows all classifications with filters for action type, sender, date range.
 
-### Workflow for Testing Signal/Threshold Changes
-1. Make code changes (e.g., tune signal weights in `signals.py` or thresholds in `tier1.py`)
+### Workflow for Testing Signal Changes
+1. Make code changes (e.g., tune signal weights in `signals.py`)
 2. Create PR, wait for CI checks, merge
 3. Verify Railway deployment succeeds
 4. Clear database: `curl -X POST .../run-migration-007`
@@ -108,9 +90,8 @@ Audit page shows all classifications with filters for action type, sender, date 
 6. Classify batch: `curl -X POST .../sample-and-classify?batch_size=500`
 7. Wait 2-3 minutes for processing
 8. Check distribution: `curl -X POST .../sample-and-classify?batch_size=0`
-9. **NEW:** Export samples for analysis: `curl ".../export-samples?action=keep&limit=50"`
-10. Review quality on audit page
-11. Repeat steps 6-10 for multiple batches if needed
+9. Review quality on audit page
+10. Repeat steps 6-9 for multiple batches if needed
 
 ---
 
