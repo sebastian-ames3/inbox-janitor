@@ -179,7 +179,19 @@ class GmailClient:
         except RuntimeError:
             # No event loop running - we're in a pure sync context (this is the expected case)
             # Create a new event loop for this sync call
-            asyncio.run(self._check_rate_limit_async(quota_units))
+            try:
+                # Try using asyncio.run() (Python 3.7+)
+                asyncio.run(self._check_rate_limit_async(quota_units))
+            except RuntimeError as e:
+                # If asyncio.run() fails (e.g., "Event loop is closed" in tests),
+                # manually create and set a new event loop
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                try:
+                    loop.run_until_complete(self._check_rate_limit_async(quota_units))
+                finally:
+                    loop.close()
+                    asyncio.set_event_loop(None)
 
     def _execute_with_retry(self, operation_func, operation_name: str, quota_units: int = 5):
         """
