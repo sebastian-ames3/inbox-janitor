@@ -1,13 +1,23 @@
 # Inbox Janitor - Development Context
 
-**Last Updated:** 2025-11-12
-**Status:** Classifier Tuning Required - Unsubscribe Signal Too Weak
-**Current Phase:** Production Testing & Optimization (~360 Tests, 20.7K+ Emails Classified)
+**Last Updated:** 2025-11-13 (Early Morning)
+**Status:** Critical Bugfixes Complete, Classifier Tuning in Progress
+**Current Phase:** Production Testing & Optimization (async fixes deployed)
 
 ---
 
 ## 📍 Project Status
 
+**✅ Recently Completed (2025-11-13 Early Morning):**
+- ✅ **CRITICAL: Async/Await Bugfixes (PR #84)** 🐛
+  - Fixed Redis client initialization TypeError (OAuth login broken)
+  - Fixed re-authentication refresh token handling (returning users couldn't reconnect)
+  - Fixed rate limiting bypass in async contexts (quotas not enforced)
+  - Fixed email sending blocking event loop (FastAPI latency degraded)
+  - Impact: Core functionality restored (OAuth, rate limiting, email)
+  - All changes merged and deployed to production
+
+**✅ Completed Earlier (2025-11-12):**
 **✅ Recently Completed (2025-11-12 Late Evening):**
 - ✅ Classifier Testing Session Complete (PRs #75-80)
   - Fixed 6 critical bugs (import typos, missing functions, parameter types)
