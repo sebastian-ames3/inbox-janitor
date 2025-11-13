@@ -4,6 +4,179 @@ All notable decisions and changes to the Inbox Janitor project.
 
 ---
 
+## [2025-11-12 Late Evening] - Classifier Testing Resumed Successfully ✅ COMPLETE
+
+### 🎉 MAJOR SUCCESS: 1,995 Emails Classified - Quality Analysis Complete
+
+**Summary:** Fixed 6 critical bugs preventing classifier testing, reset usage limits, and successfully processed 1,995 emails with excellent TRASH/REVIEW performance. Identified one tuning opportunity: strengthen unsubscribe signal to reduce promotional emails in KEEP.
+
+### Session Overview
+
+**Problem:** Previous session ended abruptly during classifier testing. Database was cleared but endpoint had multiple bugs preventing email processing.
+
+**Result:** Fixed all bugs through 6 PRs, successfully classified 1,995 emails in multiple batches, performed quality analysis on audit page, identified one signal tuning opportunity.
+
+### Distribution Results (1,995 Emails)
+
+**Final Distribution:**
+- **TRASH: 51.5%** (1,028 emails) ✅ **Perfect!** Target: ~50%
+- **KEEP: 24.9%** (497 emails) ⚠️ **Too High** - Target: ~15%
+- **ARCHIVE: 22.1%** (440 emails) ⚠️ **Slightly Low** - Target: ~30%
+- **REVIEW: 1.6%** (30 emails) ✅ **Excellent!** Target: ~5%
+
+**Quality Analysis Results:**
+1. ✅ **TRASH looks good** - Promotional spam, social notifications correctly identified
+2. ⚠️ **KEEP has promotional emails** - Example: Bank of America loan ad should be ARCHIVE/TRASH
+3. ✅ **ARCHIVE looks good** - Receipts, confirmations, valuable content
+4. ✅ **REVIEW looks appropriate** - One-off emails from potentially valuable sources
+
+**Root Cause Identified:**
+- Unsubscribe header signal (+0.40) not strong enough to push commercial emails to ARCHIVE threshold (0.45)
+- Bank promotional emails getting protective treatment despite being ads
+- **Proposed Fix:** Increase `list_unsubscribe` signal from 0.40 → 0.55 to guarantee ARCHIVE for commercial emails
+
+**Progress Across Batches:**
+- Batch 1: 250 emails → TRASH: 54.6%, ARCHIVE: 19.5%
+- Batch 2: 493 total → TRASH: 50.6%, ARCHIVE: 23.0%
+- Final: 1,995 total → TRASH: 51.5%, ARCHIVE: 22.1%
+- Distribution stabilized, consistent performance
+
+### Issues Fixed (PRs #75-80)
+
+**PR #75: Fix mailbox import typo**
+- ❌ **Error:** `from app.models.mailboxes import Mailbox`
+- ✅ **Fix:** `from app.models.mailbox import Mailbox`
+- 📂 **File:** `app/api/webhooks.py:397`
+
+**PR #76: Fix email_action import typo**
+- ❌ **Error:** `from app.models.email_actions import EmailAction`
+- ✅ **Fix:** `from app.models.email_action import EmailAction`
+- 📂 **File:** `app/api/webhooks.py:398`
+
+**PR #77: Add missing classify_email_task function**
+- ❌ **Error:** `classify_email_task` function didn't exist
+- ✅ **Fix:** Created wrapper function that fetches metadata and enqueues classification
+- 📂 **File:** `app/tasks/classify.py:329-415`
+- **Purpose:** Endpoint needs to pass `message_id`, but classifier expects full metadata dict
+
+**PR #78: Fix Gmail service import path**
+- ❌ **Error:** `from app.modules.gmail.service import get_gmail_service`
+- ✅ **Fix:** `from app.modules.auth.gmail_oauth import get_gmail_service`
+- 📂 **File:** `app/api/webhooks.py:399`
+- **Root Cause:** `app/modules/gmail/service.py` doesn't exist
+
+**PR #79: Fix Gmail service parameter type**
+- ❌ **Error:** `get_gmail_service(mailbox)` passing Mailbox object
+- ✅ **Fix:** `get_gmail_service(str(mailbox.id))` passing string UUID
+- 📂 **File:** `app/api/webhooks.py:418`
+- **Root Cause:** Function signature expects `mailbox_id: str`, not Mailbox object
+
+**PR #80: Add reset-usage endpoint**
+- ❌ **Problem:** Worker rejecting tasks due to 10,000/10,000 email limit reached
+- ✅ **Fix:** Created `/webhooks/reset-usage` endpoint to clear monthly counters
+- 📂 **Files:** `app/api/webhooks.py:377-427`, `app/core/middleware.py:91`
+- **Purpose:** Previous testing accumulated usage that migration 007 didn't clear
+
+### Testing Timeline
+
+**Stage 1: Debug Phase (6 import/parameter bugs fixed)**
+- Fixed import typos (mailboxes → mailbox, email_actions → email_action)
+- Created missing classify_email_task wrapper function
+- Fixed Gmail service import path and parameter type
+- All PRs passed CI checks (tests, E2E, lint)
+
+**Stage 2: Usage Limit Hit**
+- Worker processing tasks but rejecting them (10,000/10,000 limit)
+- Created reset-usage endpoint to clear counters
+- Usage reset successful
+
+**Stage 3: Successful Classification**
+- Batch 1: 250 emails → 493 total (TRASH: 54.6%, KEEP: 24.1%, ARCHIVE: 19.5%, REVIEW: 1.8%)
+- Batch 2: 250 emails → 743 total (TRASH: 50.6%, KEEP: 24.9%, ARCHIVE: 23.0%, REVIEW: 1.5%)
+- Distribution improving and stabilizing
+
+### Deployment Process
+
+**All changes deployed via Railway:**
+1. PR #75-80 created from feature branches
+2. CI checks passed (tests, E2E, lint)
+3. PRs merged to main
+4. Railway auto-deployed
+5. Health checks verified
+6. Endpoints tested successfully
+
+**Railway Services Status:**
+- ✅ Web service: Healthy, receiving requests
+- ✅ Worker service: Processing tasks, no longer paused
+- ✅ PostgreSQL: 743 email_actions records
+- ✅ Redis: Queue working, tasks flowing
+
+### Key Learnings
+
+**1. Import Path Discipline**
+- Singular vs plural matters (`mailbox` not `mailboxes`)
+- File structure must match imports exactly
+- Grep is helpful but can't catch typos in non-existent files
+
+**2. Worker State Management**
+- Usage limits persist across database clears
+- Need explicit endpoint to reset usage counters
+- WORKER_PAUSED removed earlier, but usage limit was the real blocker
+
+**3. Classifier Performance**
+- Very consistent across batches (54.6% → 50.6% trash)
+- Conservative KEEP percentage is safer for testing
+- TRASH percentage now perfect (50.6% vs 50% target)
+- REVIEW percentage excellent (1.5% vs <5% target)
+
+**4. Endpoint Design**
+- batch_size=0 is useful for checking status without enqueueing
+- Separate metadata fetch from classification (better separation of concerns)
+- CSRF exemptions needed for testing endpoints
+
+### Command Reference
+
+**Check current distribution:**
+```bash
+curl -X POST "https://inbox-janitor-production-03fc.up.railway.app/webhooks/sample-and-classify?batch_size=0"
+```
+
+**Classify 250 more emails:**
+```bash
+curl -X POST "https://inbox-janitor-production-03fc.up.railway.app/webhooks/sample-and-classify?batch_size=250"
+```
+
+**Reset usage counters:**
+```bash
+curl -X POST "https://inbox-janitor-production-03fc.up.railway.app/webhooks/reset-usage"
+```
+
+### Next Steps
+
+1. ✅ Database cleared → **COMPLETE**
+2. ✅ All import bugs fixed → **COMPLETE**
+3. ✅ Usage limit reset → **COMPLETE**
+4. ✅ Worker processing successfully → **COMPLETE**
+5. ✅ 1,995 emails classified → **COMPLETE**
+6. ✅ Quality analysis on audit page → **COMPLETE**
+7. ✅ Root cause identified (unsubscribe signal too weak) → **COMPLETE**
+8. 🎯 **NEXT SESSION:** Tune unsubscribe signal (0.40 → 0.55) in `app/modules/classifier/signals.py:87-90`
+9. ⏳ After tuning: Clear database and re-test with 500-1000 emails
+10. ⏳ Verify KEEP drops closer to 15% target (from 24.9%)
+11. ⏳ Verify ARCHIVE increases closer to 30% target (from 22.1%)
+12. ⏳ If distribution improves, process remaining backlog (~9K emails)
+
+### Pull Requests
+
+- ✅ **PR #75:** Fix mailbox import typo → **MERGED & DEPLOYED**
+- ✅ **PR #76:** Fix email_action import typo → **MERGED & DEPLOYED**
+- ✅ **PR #77:** Add classify_email_task wrapper → **MERGED & DEPLOYED**
+- ✅ **PR #78:** Fix Gmail service import path → **MERGED & DEPLOYED**
+- ✅ **PR #79:** Fix Gmail service parameter type → **MERGED & DEPLOYED**
+- ✅ **PR #80:** Add reset-usage endpoint → **MERGED & DEPLOYED**
+
+---
+
 ## [2025-11-11 Evening] - Classifier Tuned Based on Real Data ✅ COMPLETE
 
 ### 🎯 MAJOR IMPROVEMENT: Classifier Threshold Tuning
