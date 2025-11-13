@@ -540,3 +540,68 @@ async def sample_and_classify(batch_size: int = 250):
             "error": str(e),
             "message": "Sampling failed. Check logs for details."
         }
+
+
+@router.get("/export-samples")
+async def export_samples(action: str = "keep", limit: int = 50):
+    """
+    Export sample classified emails for analysis.
+
+    Returns email metadata and classification details for debugging/tuning.
+
+    Args:
+        action: Filter by action (keep/archive/trash/review)
+        limit: Number of samples to return (default: 50)
+
+    Returns:
+        List of email samples with classification metadata
+
+    Usage:
+        curl "https://inbox-janitor-production-03fc.up.railway.app/webhooks/export-samples?action=keep&limit=50"
+    """
+    try:
+        from sqlalchemy import select, desc
+        from app.core.database import AsyncSessionLocal
+        from app.models.email_action import EmailAction
+
+        async with AsyncSessionLocal() as session:
+            # Query email actions
+            stmt = select(EmailAction).where(
+                EmailAction.action == action.upper()
+            ).order_by(
+                desc(EmailAction.created_at)
+            ).limit(limit)
+
+            result = await session.execute(stmt)
+            actions = result.scalars().all()
+
+            # Format samples
+            samples = []
+            for action_record in actions:
+                metadata = action_record.classification_metadata or {}
+
+                samples.append({
+                    "message_id": action_record.message_id,
+                    "from_address": action_record.from_address,
+                    "subject": action_record.subject,
+                    "snippet": action_record.snippet,
+                    "action": action_record.action,
+                    "confidence": action_record.confidence,
+                    "reason": action_record.reason,
+                    "signals": metadata.get("signals", []),
+                    "created_at": action_record.created_at.isoformat() if action_record.created_at else None
+                })
+
+            return {
+                "success": True,
+                "action": action.upper(),
+                "count": len(samples),
+                "samples": samples
+            }
+
+    except Exception as e:
+        logger.error(f"Export samples failed: {e}", exc_info=True)
+        return {
+            "success": False,
+            "error": str(e)
+        }
