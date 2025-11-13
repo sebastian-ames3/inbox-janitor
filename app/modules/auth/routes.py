@@ -172,7 +172,12 @@ async def google_oauth_callback(
         if existing_mailbox:
             # Update existing mailbox
             existing_mailbox.encrypted_access_token = encrypt_token(tokens["access_token"])
-            existing_mailbox.encrypted_refresh_token = encrypt_token(tokens["refresh_token"])
+
+            # Only update refresh token if provided (Google may not send it on re-auth)
+            if tokens.get("refresh_token"):
+                existing_mailbox.encrypted_refresh_token = encrypt_token(tokens["refresh_token"])
+            # If no refresh token provided, keep existing one
+
             existing_mailbox.token_expires_at = datetime.utcnow() + timedelta(
                 seconds=tokens["expires_in"]
             )
@@ -180,6 +185,13 @@ async def google_oauth_callback(
             mailbox = existing_mailbox
         else:
             # Create new mailbox
+            # For new mailboxes, refresh token is REQUIRED
+            if not tokens.get("refresh_token"):
+                return RedirectResponse(
+                    url="/auth/error?error_message=No refresh token received. Please try connecting again with full permissions.",
+                    status_code=302
+                )
+
             mailbox = Mailbox(
                 user_id=user.id,
                 provider="gmail",

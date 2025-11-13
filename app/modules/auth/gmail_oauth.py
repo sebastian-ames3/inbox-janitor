@@ -57,7 +57,7 @@ class GmailOAuthManager:
     async def _get_redis(self) -> redis.Redis:
         """Get Redis client for state storage."""
         if not self._redis:
-            self._redis = await redis.from_url(settings.REDIS_URL)
+            self._redis = redis.from_url(settings.REDIS_URL)
         return self._redis
 
     async def get_authorization_url(self, user_id: str) -> Tuple[str, str]:
