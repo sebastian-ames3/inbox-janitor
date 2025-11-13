@@ -74,7 +74,7 @@ def signal_list_unsubscribe(metadata: EmailMetadata) -> ClassificationSignal:
     Its presence strongly indicates marketing/promotional content.
 
     Scoring:
-    - Has List-Unsubscribe: +0.40 (strong trash signal)
+    - Has List-Unsubscribe: +0.55 (strong trash/archive signal)
     - No List-Unsubscribe: 0.0 (neutral)
 
     Args:
@@ -86,7 +86,7 @@ def signal_list_unsubscribe(metadata: EmailMetadata) -> ClassificationSignal:
     if metadata.has_unsubscribe_header:
         return ClassificationSignal(
             name="list_unsubscribe",
-            score=0.40,
+            score=0.55,
             reason="Has List-Unsubscribe header (commercial email)"
         )
     else:
