@@ -415,7 +415,7 @@ async def sample_and_classify(batch_size: int = 250):
 
             # Fetch message IDs from Gmail
             logger.info("Fetching message IDs from Gmail...")
-            gmail_service = await get_gmail_service(mailbox)
+            gmail_service = await get_gmail_service(str(mailbox.id))
 
             message_ids = []
             page_token = None
