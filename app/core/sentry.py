@@ -120,13 +120,136 @@ def filter_sensitive_data(event, hint):
     if event.get("contexts"):
         redact_dict(event["contexts"])
 
-    # Drop events containing body content (should NEVER happen)
+    # Detect body content violations (should NEVER happen)
     event_str = str(event).lower()
     if "html_body" in event_str or "raw_content" in event_str:
-        logger.critical("SECURITY VIOLATION: Body content detected in Sentry event - event dropped")
-        return None  # Drop the event
+        logger.critical("SECURITY VIOLATION: Body content detected in Sentry event")
+
+        # Extract forensic metadata
+        forensics = {
+            "timestamp": event.get("timestamp"),
+            "event_id": event.get("event_id"),
+            "user_id": event.get("user", {}).get("id") if isinstance(event.get("user"), dict) else None,
+            "request_path": event.get("request", {}).get("url") if isinstance(event.get("request"), dict) else None,
+            "level": event.get("level"),
+            "platform": event.get("platform"),
+        }
+
+        # Extract function/line info from exception if available
+        if event.get("exception") and isinstance(event.get("exception"), dict):
+            values = event["exception"].get("values", [])
+            if values and len(values) > 0:
+                stacktrace = values[0].get("stacktrace", {})
+                frames = stacktrace.get("frames", [])
+                if frames and len(frames) > 0:
+                    last_frame = frames[-1]
+                    forensics["function_name"] = last_frame.get("function")
+                    forensics["line_number"] = last_frame.get("lineno")
+                    forensics["filename"] = last_frame.get("filename")
+
+        # Store forensics and send admin alert (async, don't block Sentry)
+        # We can't use async here, so we'll log to Sentry with a special tag
+        # and send alert via a background task
+        import asyncio
+        try:
+            # Try to send alert in background (may not work in sync context)
+            asyncio.create_task(_handle_body_content_violation(forensics))
+        except RuntimeError:
+            # No event loop running - log warning and continue
+            logger.error(
+                "Cannot send admin alert - no event loop running. "
+                "Forensics logged to Sentry.",
+                extra=forensics
+            )
+
+        # Tag event with security violation marker
+        if "tags" not in event:
+            event["tags"] = {}
+        event["tags"]["security_violation"] = "body_content_detected"
+
+        # Aggressively redact body content
+        event = _redact_body_content_from_event(event)
+
+        # Return redacted event (don't drop it - we need visibility)
+        return event
 
     return event
+
+
+def _redact_body_content_from_event(event):
+    """
+    Recursively redact body content from Sentry event.
+
+    Args:
+        event: Sentry event dict
+
+    Returns:
+        Event with body content redacted
+    """
+    def redact_value(value):
+        if isinstance(value, str):
+            # Check if string contains body content markers
+            if "html_body" in value.lower() or "raw_content" in value.lower():
+                return "[REDACTED - BODY CONTENT DETECTED]"
+            return value
+        elif isinstance(value, dict):
+            return {k: redact_value(v) for k, v in value.items()}
+        elif isinstance(value, list):
+            return [redact_value(item) for item in value]
+        else:
+            return value
+
+    return redact_value(event)
+
+
+async def _handle_body_content_violation(forensics: dict):
+    """
+    Handle body content violation asynchronously.
+
+    Sends admin alert and stores forensics in database.
+
+    Args:
+        forensics: Forensic metadata from Sentry event
+    """
+    from app.core.database import AsyncSessionLocal
+    from app.core.alerting import send_admin_alert, record_security_violation
+
+    try:
+        # Store in database
+        async with AsyncSessionLocal() as session:
+            await record_security_violation(
+                session=session,
+                violation_type="body_content_logged",
+                severity="CRITICAL",
+                event_metadata=forensics,
+                description="Email body content detected in Sentry event"
+            )
+            await session.commit()
+
+        # Send immediate admin alert
+        await send_admin_alert(
+            title="🚨 CRITICAL: Email Body Detected in Logs",
+            message=f"Body content detected in Sentry event.\n\n"
+                    f"Event ID: {forensics.get('event_id', 'N/A')}\n"
+                    f"User ID: {forensics.get('user_id', 'N/A')}\n"
+                    f"Function: {forensics.get('function_name', 'N/A')}:{forensics.get('line_number', 'N/A')}\n"
+                    f"File: {forensics.get('filename', 'N/A')}\n"
+                    f"Time: {forensics.get('timestamp', 'N/A')}\n\n"
+                    f"IMMEDIATE ACTION REQUIRED:\n"
+                    f"1. Review code at {forensics.get('filename')}:{forensics.get('line_number')}\n"
+                    f"2. Check for GDPR violation\n"
+                    f"3. Determine if user data was exposed\n"
+                    f"4. Create incident report",
+            severity="CRITICAL",
+            notify_via=["email"],  # Future: add "sms" for CRITICAL
+            extra_data=forensics
+        )
+
+        logger.info("Body content violation alert sent successfully")
+
+    except Exception as e:
+        logger.error(f"Failed to handle body content violation: {str(e)}")
+        # Don't raise - we don't want to break Sentry error reporting
 
 
 def capture_business_error(

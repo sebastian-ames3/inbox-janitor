@@ -390,3 +390,250 @@ async def record_worker_pause_event(
     )
 
     return event.id
+
+
+async def check_worker_paused(
+    session: AsyncSession,
+    mailbox_id: Optional[UUID],
+    message_id: Optional[str]
+) -> bool:
+    """
+    Check if worker is paused and handle monitoring/alerting.
+
+    If paused:
+    - Record pause event in database
+    - Check how long worker has been paused
+    - Send admin alert if paused >5 minutes
+
+    Args:
+        session: Database session
+        mailbox_id: Mailbox attempting classification
+        message_id: Message being skipped
+
+    Returns:
+        True if worker is paused, False otherwise
+
+    Example:
+        >>> is_paused = await check_worker_paused(session, mailbox_id, message_id)
+        >>> if is_paused:
+        ...     return {"status": "paused"}
+    """
+    import os
+    from datetime import datetime, timedelta
+    from sqlalchemy import select, func
+    from app.models.worker_pause_events import WorkerPauseEvent
+
+    if os.getenv('WORKER_PAUSED', 'false').lower() != 'true':
+        return False  # Not paused
+
+    # Worker is paused - record event
+    await record_worker_pause_event(session, mailbox_id, message_id)
+
+    # Check how long worker has been paused
+    # Find oldest active (unresolved) pause event
+    result = await session.execute(
+        select(WorkerPauseEvent)
+        .where(WorkerPauseEvent.resumed_at.is_(None))
+        .order_by(WorkerPauseEvent.paused_at.asc())
+        .limit(1)
+    )
+    oldest_pause = result.scalar_one_or_none()
+
+    if oldest_pause:
+        pause_duration = oldest_pause.duration_seconds
+
+        # Alert admin if paused >5 minutes
+        if pause_duration > 300:  # 5 minutes
+            await send_admin_alert(
+                title="🚨 Worker Paused >5 Minutes",
+                message=f"Classification worker paused for {pause_duration:.0f} seconds.\n\n"
+                        f"Set WORKER_PAUSED=false in Railway environment variables to resume.\n\n"
+                        f"Emails are being skipped and will need reprocessing when worker resumes.",
+                severity="HIGH",
+                extra_data={
+                    "pause_duration_seconds": pause_duration,
+                    "mailbox_id": str(mailbox_id) if mailbox_id else None,
+                    "message_id": message_id
+                }
+            )
+
+    logger.warning(
+        f"Worker paused - classification skipped",
+        extra={
+            "mailbox_id": str(mailbox_id) if mailbox_id else None,
+            "message_id": message_id
+        }
+    )
+
+    return True  # Worker is paused
+
+
+async def handle_inactive_mailbox(
+    session: AsyncSession,
+    mailbox_id: UUID,
+    user_id: UUID,
+    user_email: str
+) -> None:
+    """
+    Handle inactive mailbox during watch registration.
+
+    Actions:
+    - Send email to user: "Gmail connection inactive - please reconnect"
+    - Alert admin if >10 mailboxes inactive (mass issue)
+    - Log for monitoring
+
+    Args:
+        session: Database session
+        mailbox_id: ID of inactive mailbox
+        user_id: ID of user who owns the mailbox
+        user_email: User's email address
+
+    Example:
+        >>> await handle_inactive_mailbox(
+        ...     session=session,
+        ...     mailbox_id=UUID('...'),
+        ...     user_id=UUID('...'),
+        ...     user_email='user@gmail.com'
+        ... )
+    """
+    from sqlalchemy import select, func
+    from app.models.mailbox import Mailbox
+    from app.modules.digest.email_service import send_email
+
+    logger.warning(
+        f"Mailbox inactive - watch registration skipped",
+        extra={
+            "mailbox_id": str(mailbox_id),
+            "user_id": str(user_id)
+        }
+    )
+
+    # Send email to user
+    html_body = f"""
+    <html>
+    <head>
+        <style>
+            body {{
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                line-height: 1.6;
+                color: #1F2937;
+                max-width: 600px;
+                margin: 0 auto;
+                padding: 20px;
+            }}
+            .warning-header {{
+                background-color: #F59E0B;
+                color: white;
+                padding: 20px;
+                border-radius: 8px 8px 0 0;
+            }}
+            .warning-header h1 {{
+                margin: 0;
+                font-size: 24px;
+            }}
+            .warning-body {{
+                background-color: #F9FAFB;
+                padding: 20px;
+                border: 1px solid #E5E7EB;
+                border-top: none;
+                border-radius: 0 0 8px 8px;
+            }}
+            .button {{
+                display: inline-block;
+                background-color: #3B82F6;
+                color: white;
+                padding: 12px 24px;
+                text-decoration: none;
+                border-radius: 6px;
+                margin: 16px 0;
+            }}
+            .footer {{
+                margin-top: 30px;
+                padding-top: 20px;
+                border-top: 1px solid #E5E7EB;
+                font-size: 12px;
+                color: #6B7280;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="warning-header">
+            <h1>⚠️ Gmail Connection Needs Attention</h1>
+        </div>
+        <div class="warning-body">
+            <p>Your Gmail connection to Inbox Janitor has become inactive.</p>
+
+            <p>This means:</p>
+            <ul>
+                <li>Real-time email classification is paused</li>
+                <li>New emails won't be automatically processed</li>
+                <li>Your inbox cleanup is temporarily disabled</li>
+            </ul>
+
+            <p>To resume automatic email management, please reconnect your Gmail account:</p>
+
+            <a href="{settings.APP_URL}/auth/gmail" class="button">Reconnect Gmail</a>
+
+            <p>If you need help, reply to this email or contact support at support@inboxjanitor.app</p>
+        </div>
+
+        <div class="footer">
+            <p>Inbox Janitor - Automatic email hygiene that respects your privacy</p>
+        </div>
+    </body>
+    </html>
+    """
+
+    text_body = f"""
+Gmail Connection Needs Attention
+
+Your Gmail connection to Inbox Janitor has become inactive.
+
+This means:
+- Real-time email classification is paused
+- New emails won't be automatically processed
+- Your inbox cleanup is temporarily disabled
+
+To resume automatic email management, please reconnect your Gmail account:
+{settings.APP_URL}/auth/gmail
+
+If you need help, reply to this email or contact support at support@inboxjanitor.app
+
+---
+Inbox Janitor - Automatic email hygiene that respects your privacy
+    """
+
+    try:
+        await send_email(
+            to=user_email,
+            subject="Inbox Janitor: Gmail connection needs attention",
+            html_body=html_body,
+            text_body=text_body,
+            tag="mailbox-inactive"
+        )
+        logger.info(f"Inactive mailbox notification sent to {user_email}")
+    except Exception as e:
+        logger.error(f"Failed to send inactive mailbox email to {user_email}: {str(e)}")
+        # Don't raise - this is a notification, not critical
+
+    # Check if this is a mass issue
+    result = await session.execute(
+        select(func.count(Mailbox.id)).where(Mailbox.is_active == False)
+    )
+    inactive_count = result.scalar()
+
+    if inactive_count > 10:
+        await send_admin_alert(
+            title="⚠️ Mass Mailbox Inactivity",
+            message=f"{inactive_count} mailboxes are currently inactive.\n\n"
+                    f"This may indicate:\n"
+                    f"- OAuth token refresh issue\n"
+                    f"- Gmail API outage\n"
+                    f"- Systematic authentication problem\n\n"
+                    f"Check Railway logs for token refresh errors.",
+            severity="HIGH",
+            extra_data={
+                "inactive_count": inactive_count,
+                "latest_inactive_mailbox": str(mailbox_id)
+            }
+        )
