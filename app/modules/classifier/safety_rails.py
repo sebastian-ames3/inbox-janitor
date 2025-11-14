@@ -317,7 +317,25 @@ def check_short_subject(metadata: EmailMetadata) -> Optional[SafetyOverride]:
 
     subject_clean = metadata.subject.strip()
 
-    # Not short - no concern
+    # Check if all caps FIRST (personal urgency: "URGENT", "HELP", "FYI")
+    # This applies regardless of length
+    if subject_clean.isupper() and len(subject_clean) > 1:
+        logger.info(
+            f"All-caps subject '{subject_clean}' - flagging as potentially important",
+            extra={
+                "message_id": metadata.message_id,
+                "subject": subject_clean,
+                "from_address": metadata.from_address
+            }
+        )
+        return SafetyOverride(
+            triggered_by="short_subject_allcaps",
+            original_action=ClassificationAction.TRASH,
+            new_action=ClassificationAction.REVIEW,
+            reason=f"All-caps subject '{subject_clean}' - may be personal/urgent"
+        )
+
+    # Not short - no other concerns (unless all-caps which was checked above)
     if len(subject_clean) >= 5:
         return None
 
@@ -332,23 +350,6 @@ def check_short_subject(metadata: EmailMetadata) -> Optional[SafetyOverride]:
             }
         )
         return None
-
-    # Check if all caps (personal urgency: "URGENT", "HELP", "FYI")
-    if subject_clean.isupper() and len(subject_clean) > 1:
-        logger.info(
-            f"Short subject '{subject_clean}' is all caps - flagging as potentially important",
-            extra={
-                "message_id": metadata.message_id,
-                "subject": subject_clean,
-                "from_address": metadata.from_address
-            }
-        )
-        return SafetyOverride(
-            triggered_by="short_subject_allcaps",
-            original_action=ClassificationAction.TRASH,
-            new_action=ClassificationAction.REVIEW,
-            reason=f"Short all-caps subject '{subject_clean}' - may be personal/urgent"
-        )
 
     # Check for personal pronouns (not common in marketing)
     personal_words = ["you", "your", "i", "me", "my", "our", "we"]
