@@ -374,9 +374,10 @@ def check_short_subject(metadata: EmailMetadata) -> Optional[SafetyOverride]:
     marketing_domains = [
         "sendgrid.net", "mailchimp", "klaviyo", "customeriomail.com",
         "campaignmonitor.com", "mailgun", "amazonses.com", "sparkpostmail.com",
-        "email.", "mail.", "newsletter", "marketing"
+        ".email.", "newsletter", "marketing", "promo", "offers"
     ]
     from_domain_lower = metadata.from_domain.lower()
+    # Use more specific matching to avoid false positives (e.g., "mail." matching "gmail.com")
     if any(domain in from_domain_lower for domain in marketing_domains):
         logger.debug(
             f"Short subject '{subject_clean}' from marketing domain '{metadata.from_domain}' - NOT flagging",
