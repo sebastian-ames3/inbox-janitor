@@ -4,6 +4,182 @@ All notable decisions and changes to the Inbox Janitor project.
 
 ---
 
+## [2025-11-13 Late Afternoon] - 🚨 CRITICAL: Comprehensive Security Audit & Safety Restoration Plan
+
+### 🔍 DISCOVERY: Major Safety Bypasses in Production Code
+
+**Summary:** Conducted comprehensive security audit following Codex review of async bugfixes. Discovered **9 CRITICAL** and **4 HIGH** severity safety mechanism bypasses currently in production. Created 5 detailed PRDs with complete implementation plans to restore all safety mechanisms.
+
+**Trigger:** External code review (Codex) identified that PR #84 fixed rate limit initialization but didn't prevent the bypass itself. This prompted full codebase audit for other disabled safety mechanisms.
+
+### Critical Findings
+
+**1. Rate Limiting Completely Bypassed (CATASTROPHIC)**
+- **File:** `app/modules/ingest/gmail_client.py:170-178`
+- **Issue:** When `GmailClient` sync methods called from async contexts (Celery workers), rate limiting logs warning but returns without enforcement
+- **Impact:** Unlimited Gmail API calls allowed, potential quota exhaustion, all users affected
+- **Current State:** In production now, bypassing quotas
+- **Note:** PR #84 improved detection but didn't fix root cause
+
+**2. Safety Rails Disabled (HIGH)**
+- **File:** `app/modules/classifier/safety_rails.py:313`
+- **Issue:** `check_short_subject` disabled due to "too many false positives" without data
+- **Impact:** Personal emails with short subjects ("Hi", "Question") might get trashed
+- **Current State:** Disabled in production
+
+**3. Exception Keywords Broken (HIGH)**
+- **File:** `app/modules/classifier/safety_rails.py:22-107`
+- **Issue:** Keyword "offer" too broad - matches both job offers and marketing offers
+- **Impact:** Marketing emails never trashed (false negatives), reduces classification accuracy
+- **Current State:** Broken in production
+
+**4. Security Violations Silent (CRITICAL)**
+- **Files:** `app/tasks/classify.py:56-61`, `app/core/sentry.py:124-127`, `app/modules/ingest/gmail_watch.py:73`
+- **Issue:** WORKER_PAUSED bypass, Sentry body detection, Gmail watch failures all log warnings but don't alert admin
+- **Impact:** Security violations happen without investigation, no operational visibility
+- **Current State:** All in production
+
+**5. Token Refresh Brittleness (HIGH)**
+- **File:** `app/modules/auth/gmail_oauth.py:336-348`
+- **Issue:** ANY exception disables mailbox immediately without retry (including network timeouts)
+- **Impact:** Temporary network blip permanently disables user account
+- **Current State:** In production, high support burden expected
+
+**6. False Test Coverage (HIGH)**
+- **Files:** Multiple test files
+- **Issue:** 55 tests skipped (27.5% of test suite), creating false confidence in coverage
+- **Impact:** Unknown security vulnerabilities, production bugs not caught by CI/CD
+- **Current State:** 14 security tests skipped, 5 safety rail tests skipped
+
+### Safety Restoration PRDs Created
+
+Created 5 comprehensive PRDs with detailed implementation plans:
+
+**PRD-0004: Rate Limiting Architecture Fix (P0, 2 days)**
+- Refactor `GmailClient` to fully async (eliminate sync wrappers)
+- Remove `_check_rate_limit_sync()` that bypasses enforcement
+- Update all calling code to async/await pattern
+- **Goal:** 100% rate limit enforcement, zero bypass warnings
+- **Files:** `tasks/PRD-0004-rate-limiting-architecture-fix.md`, `tasks/TASKS-PRD-0004-rate-limiting-architecture-fix.md`
+
+**PRD-0005: Safety Rails Restoration (P0, 3 days)**
+- Re-enable `check_short_subject` with smart detection logic
+- Fix exception keywords with phrase-based matching
+- Test on 1000+ real emails before deployment
+- **Goal:** <0.1% false positive rate, distribution targets met
+- **Files:** `tasks/PRD-0005-safety-rails-restoration.md`, `tasks/TASKS-PRD-0005-safety-rails-restoration.md`
+
+**PRD-0006: Security Monitoring & Alerting (P0, 3 days)**
+- Create admin alerting system (email, future: SMS/Slack)
+- Add monitoring to WORKER_PAUSED, Sentry body detection, Gmail watch failures
+- Create dashboard health indicators
+- **Goal:** Admin alerts within 60 seconds, user notifications within 5 minutes
+- **Files:** `tasks/PRD-0006-security-monitoring-alerting.md`, `tasks/TASKS-PRD-0006-security-monitoring-alerting.md`
+
+**PRD-0007: Token Refresh Resilience (P1, 3 days)**
+- Add retry logic with tenacity (3 attempts, exponential backoff: 2s, 4s, 8s)
+- Distinguish transient vs permanent failures
+- User notifications on failures (escalating: attempt 1 silent, attempt 2 email, attempt 3 urgent)
+- **Goal:** 95% automatic recovery rate, immediate user notification
+- **Files:** `tasks/PRD-0007-token-refresh-resilience.md`, `tasks/TASKS-PRD-0007-token-refresh-resilience.md`
+
+**PRD-0008: Test Coverage Recovery (P1, 4-5 weeks)**
+- Fix 55 skipped tests (reduce to <5)
+- Week 2: Security tests (14 tests), Week 3: Safety rails (5 tests), Week 5: Flaky tests (15 tests)
+- Add pre-commit hook to block new skipped tests
+- **Goal:** Real test coverage >90%, CI/CD confidence restored
+- **Files:** `tasks/PRD-0008-test-coverage-recovery.md`, `tasks/TASKS-PRD-0008-test-coverage-recovery.md`
+
+### Task Lists Generated
+
+Created detailed task breakdowns for all 5 PRDs:
+- **Total effort:** 158 hours (~20 days)
+- **Total subtasks:** 138 (atomic, testable, reviewable)
+- **Code examples:** Paste-ready implementations for every subtask
+- **Acceptance criteria:** Checkbox tests for every subtask
+- **Commands:** Test/deploy/verify commands provided
+
+Each task list includes:
+- Parent tasks with subtasks
+- Specific files to modify
+- Code examples with full implementations
+- Acceptance criteria checklists
+- Test commands
+- Time estimates per subtask
+
+### Documentation Created
+
+**Audit & Planning Documents:**
+- `tasks/SECURITY-AUDIT-2025-11-13.md` - Full audit findings and analysis
+- `tasks/TASKS-SUMMARY.md` - Overview of all 5 PRDs and task lists
+- Updated `CLAUDE.md` - Project status reflects safety restoration priority
+- Updated `CHANGELOG.md` - This entry
+
+**Total Documentation:** 11 files, ~50,000 words, 158 hours of work planned
+
+### Immediate Next Steps
+
+**PAUSING ALL OTHER WORK** until safety mechanisms restored:
+- ⏸️ Classifier tuning (unsubscribe signal adjustment)
+- ⏸️ PRD 0003: Action Execution Engine
+- ⏸️ Stripe billing integration
+- ⏸️ Weekly digest emails
+
+**Implementation Order:**
+1. **Week 1-2 (P0 Critical):** PRD-0004, PRD-0005, PRD-0006
+2. **Week 3 (P1 High):** PRD-0007
+3. **Weeks 2-6 (P1, parallel):** PRD-0008
+
+### Success Criteria (Gate to Resume Other Work)
+
+Before resuming classifier tuning or new features:
+- [ ] Rate limiting enforced 100% (zero bypass warnings)
+- [ ] Safety rails enabled with <0.1% false positive rate
+- [ ] Admin alerts operational (60 second response time)
+- [ ] Token refresh 95% automatic recovery rate
+- [ ] Test coverage >90% (real, not inflated)
+
+### Lessons Learned
+
+**Root Causes:**
+1. "Log and continue" instead of "fail-fast" for safety violations
+2. "Quick fix" prioritized over "correct fix" (async wrapper bypassed rate limiting)
+3. Safety mechanisms disabled without collecting metrics or planning to re-enable
+4. Tests skipped to make CI green instead of fixing root causes
+
+**Prevention Measures (Post-Restoration):**
+- Code review checklist: "Does this bypass any safety mechanism?"
+- Pre-commit hook: Block new skipped tests
+- Monitoring: Alert on safety bypass warnings
+- Quarterly: Review all disabled safety mechanisms
+
+### Impact
+
+**Production Risk:** HIGH
+- Rate limiting bypass allows runaway API usage
+- Disabled safety rails risk false positives (important emails trashed)
+- Silent failures delay incident response
+
+**User Trust:** CRITICAL
+- App handles sensitive email access
+- Safety mechanisms are non-negotiable
+- Must restore before scaling to more users
+
+**Timeline Impact:**
+- Adds ~20 days before billing launch
+- Necessary technical debt paydown
+- Prevents larger incidents later
+
+### Status
+
+- **Audit:** ✅ Complete
+- **PRDs:** ✅ Complete (5 PRDs, 158 hours planned)
+- **Task Lists:** ✅ Complete (138 subtasks with code examples)
+- **Implementation:** ⏳ Ready to start (PRD-0004 first)
+- **Target Completion:** 2-4 weeks (depending on pace)
+
+---
+
 ## [2025-11-13 Early Morning] - Critical Async/Await Bugfixes 🐛 ✅ COMPLETE
 
 ### 🎯 GOAL: Fix Critical Async Errors Breaking Core Functionality

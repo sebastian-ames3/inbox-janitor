@@ -1,24 +1,90 @@
 # Inbox Janitor - Development Context
 
-**Last Updated:** 2025-11-13 (Early Morning)
-**Status:** Critical Bugfixes Complete, Classifier Tuning in Progress
-**Current Phase:** Production Testing & Optimization (async fixes deployed)
+**Last Updated:** 2025-11-13 (Late Afternoon)
+**Status:** 🚨 CRITICAL: Security Audit Complete - Safety Bypasses Discovered
+**Current Phase:** Safety Mechanism Restoration (Blocking all other work)
 
 ---
 
 ## 📍 Project Status
 
+**🚨 CRITICAL DISCOVERY (2025-11-13 Late Afternoon):**
+- 🔍 **Comprehensive Security Audit Completed**
+  - Discovered **9 CRITICAL** and **4 HIGH** severity safety bypasses in production
+  - Most severe: Rate limiting completely bypassed in async contexts (allows unlimited Gmail API calls)
+  - Created 5 detailed PRDs with implementation plans (158 hours total)
+  - **ALL other work paused until safety mechanisms restored**
+  - See: `tasks/SECURITY-AUDIT-2025-11-13.md` for full findings
+
+**🛠️ Safety Restoration Plan (Priority Order):**
+
+**Phase 1: CRITICAL (P0) - Weeks 1-2 (~8 days)**
+1. **PRD-0004: Rate Limiting Architecture Fix** (2 days)
+   - Refactor GmailClient to fully async
+   - Eliminate rate limit bypass in async contexts
+   - Status: ⏳ Ready to implement
+   - See: `tasks/PRD-0004-rate-limiting-architecture-fix.md`
+
+2. **PRD-0005: Safety Rails Restoration** (3 days)
+   - Re-enable short subject detection with smart logic
+   - Fix exception keyword false positives (phrase-based matching)
+   - Test on 1000+ emails before deployment
+   - Status: ⏳ Ready to implement
+   - See: `tasks/PRD-0005-safety-rails-restoration.md`
+
+3. **PRD-0006: Security Monitoring & Alerting** (3 days)
+   - Admin alerts within 60 seconds of security events
+   - User notifications for service degradation
+   - Forensic logging for investigations
+   - Status: ⏳ Ready to implement
+   - See: `tasks/PRD-0006-security-monitoring-alerting.md`
+
+**Phase 2: HIGH (P1) - Weeks 3-5 (~12 days)**
+4. **PRD-0007: Token Refresh Resilience** (3 days, Week 3)
+   - Add retry logic (3 attempts with exponential backoff)
+   - Distinguish transient vs permanent failures
+   - Immediate user notifications
+   - Status: ⏳ Ready to implement
+   - See: `tasks/PRD-0007-token-refresh-resilience.md`
+
+5. **PRD-0008: Test Coverage Recovery** (4-5 weeks, parallel work)
+   - Fix 55 skipped tests (reduce to <5)
+   - Week 2: Security tests (14 tests)
+   - Week 3: Safety rails (5 tests, part of PRD-0005)
+   - Week 5: Flaky tests (15 tests)
+   - Week 6: Pre-commit hook to block new skips
+   - Status: ⏳ Ready to implement
+   - See: `tasks/PRD-0008-test-coverage-recovery.md`
+
+**📊 Audit Summary:**
+- Rate limiting bypass: Allows unlimited Gmail API calls (CATASTROPHIC)
+- Safety rails disabled: Short subject detection, exception keywords broken (HIGH)
+- Silent failures: Security violations not alerting admin (CRITICAL)
+- Token refresh brittleness: Any network blip disables user account (HIGH)
+- False test coverage: 55 tests skipped (27.5% of test suite) (HIGH)
+
+**🎯 Success Criteria (Before Resuming Other Work):**
+- [ ] Rate limiting enforced 100% (zero bypass warnings)
+- [ ] Safety rails enabled with <0.1% false positive rate
+- [ ] Admin alerts operational (60 second response time)
+- [ ] Token refresh 95% automatic recovery rate
+- [ ] Test coverage >90% (real, not inflated)
+
+**⏸️ PAUSED Until Safety Restoration Complete:**
+- Classifier tuning (unsubscribe signal adjustment)
+- PRD 0003: Action Execution Engine
+- Stripe billing integration
+- Weekly digest emails
+
 **✅ Recently Completed (2025-11-13 Early Morning):**
-- ✅ **CRITICAL: Async/Await Bugfixes (PR #84)** 🐛
+- ✅ **Async/Await Bugfixes (PR #84)** 🐛
   - Fixed Redis client initialization TypeError (OAuth login broken)
   - Fixed re-authentication refresh token handling (returning users couldn't reconnect)
-  - Fixed rate limiting bypass in async contexts (quotas not enforced)
+  - **⚠️ INCOMPLETE:** Rate limiting bypass detected but not fully fixed
   - Fixed email sending blocking event loop (FastAPI latency degraded)
-  - Impact: Core functionality restored (OAuth, rate limiting, email)
-  - All changes merged and deployed to production
+  - Note: PR #84 improved detection but didn't prevent bypass
 
 **✅ Completed Earlier (2025-11-12):**
-**✅ Recently Completed (2025-11-12 Late Evening):**
 - ✅ Classifier Testing Session Complete (PRs #75-80)
   - Fixed 6 critical bugs (import typos, missing functions, parameter types)
   - Created reset-usage endpoint for testing workflow
@@ -32,22 +98,7 @@
 - ✅ Root Cause Identified:
   - Unsubscribe header signal (+0.40) too weak
   - Promotional emails from banks getting KEEP instead of ARCHIVE
-  - Need to increase signal strength to 0.55
-
-**🚀 Current Milestone:** Tune Unsubscribe Signal
-- [x] Test classifier on 1,995 emails → **COMPLETE**
-- [x] Perform quality analysis → **COMPLETE**
-- [x] Identify root cause → **COMPLETE**
-- [ ] **NEXT:** Increase unsubscribe signal from 0.40 → 0.55
-- [ ] Clear database and re-test with 500-1000 emails
-- [ ] Verify KEEP drops closer to 15% target
-- [ ] Verify ARCHIVE increases closer to 30% target
-- [ ] Process remaining backlog (~9K emails) if improved
-
-**⏭️ After Classifier Tuning:**
-- PRD 0003: Action Execution Engine (archive/trash, quarantine, undo)
-- Stripe billing integration
-- Weekly digest emails
+  - **⏸️ PAUSED:** Signal tuning deferred until safety mechanisms restored
 
 **📚 Full History:** See [CHANGELOG.md](CHANGELOG.md) for detailed completion records.
 

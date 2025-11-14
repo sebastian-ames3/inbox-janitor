@@ -1,7 +1,7 @@
 """
 Gmail API client for fetching and modifying emails.
 
-Provides high-level interface for:
+Provides high-level async interface for:
 - Fetching email lists with pagination
 - Fetching email metadata (no full bodies)
 - Modifying emails (archive, trash, label)
@@ -12,6 +12,14 @@ CRITICAL SECURITY:
 - NEVER fetch full email bodies (always use format='metadata')
 - NEVER log access tokens
 - ALWAYS respect rate limits
+
+BREAKING CHANGE (2025-11-13):
+All methods are now async and must be awaited. This ensures rate limiting
+is properly enforced in all contexts (no bypass in async event loops).
+
+Usage:
+    client = GmailClient(mailbox)
+    messages = await client.list_messages(query='in:inbox')  # NOTE: await required
 """
 
 import logging
@@ -48,13 +56,19 @@ class GmailAuthError(GmailAPIError):
 
 class GmailClient:
     """
-    Gmail API client with rate limiting and error handling.
+    Gmail API client with rate limiting and error handling (async).
+
+    IMPORTANT: All methods are async and must be awaited.
 
     Usage:
         client = GmailClient(mailbox)
-        messages = client.list_messages(query='in:inbox category:promotions', max_results=100)
+        messages = await client.list_messages(query='in:inbox category:promotions', max_results=100)
         for msg in messages['messages']:
-            metadata = client.get_message(msg['id'])
+            metadata = await client.get_message(msg['id'])
+
+    Breaking Change (2025-11-13):
+        All methods converted to async to ensure rate limiting is enforced
+        in all contexts. Calling without await will raise TypeError.
     """
 
     def __init__(self, mailbox: Mailbox, rate_limiter=None, max_retries: int = 3):
@@ -151,51 +165,9 @@ class GmailClient:
                 quota_units=quota_units
             )
 
-    def _check_rate_limit_sync(self, quota_units: int = 5):
+    async def _execute_with_retry_async(self, operation_func, operation_name: str, quota_units: int = 5):
         """
-        Check rate limit with RateLimiter (sync wrapper).
-
-        Args:
-            quota_units: Number of quota units to consume (default 5)
-
-        Raises:
-            RateLimitExceeded: If rate limit exceeded and can't wait
-        """
-        try:
-            # Try to get the running event loop
-            loop = asyncio.get_running_loop()
-            # Loop is running - we're in an async context (e.g., worker thread with event loop)
-            # We cannot await here since this is a sync function, so we need to use asyncio.run_coroutine_threadsafe
-            # However, this is problematic because we're calling this from sync code in an async context
-            # The correct solution is to make the calling code async, but as a workaround we'll skip rate limiting
-            # and log a warning. The rate limiter should be called from async code paths instead.
-            logger.warning(
-                "Rate limit check called from sync context while event loop is running. "
-                "Rate limit bypassed. This should be called from async context instead.",
-                extra={"mailbox_id": str(self.mailbox.id)}
-            )
-            # Skip rate limiting in this edge case to avoid blocking the event loop
-            return
-        except RuntimeError:
-            # No event loop running - we're in a pure sync context (this is the expected case)
-            # Create a new event loop for this sync call
-            try:
-                # Try using asyncio.run() (Python 3.7+)
-                asyncio.run(self._check_rate_limit_async(quota_units))
-            except RuntimeError as e:
-                # If asyncio.run() fails (e.g., "Event loop is closed" in tests),
-                # manually create and set a new event loop
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                try:
-                    loop.run_until_complete(self._check_rate_limit_async(quota_units))
-                finally:
-                    loop.close()
-                    asyncio.set_event_loop(None)
-
-    def _execute_with_retry(self, operation_func, operation_name: str, quota_units: int = 5):
-        """
-        Execute Gmail API operation with retry logic and rate limiting.
+        Execute Gmail API operation with retry logic and rate limiting (async).
 
         Args:
             operation_func: Function that executes Gmail API call
@@ -210,8 +182,8 @@ class GmailClient:
         """
         for attempt in range(self._max_retries):
             try:
-                # Check rate limit before API call
-                self._check_rate_limit_sync(quota_units)
+                # Check rate limit before API call (ALWAYS enforced)
+                await self._check_rate_limit_async(quota_units)
 
                 # Apply basic rate limiting
                 self._rate_limit()
@@ -356,7 +328,7 @@ class GmailClient:
             )
             raise GmailAPIError(f"Gmail API error ({status_code}) during {operation}")
 
-    def list_messages(
+    async def list_messages(
         self,
         query: str = "",
         max_results: int = 100,
@@ -364,7 +336,7 @@ class GmailClient:
         label_ids: Optional[List[str]] = None
     ) -> Dict:
         """
-        List messages matching query.
+        List messages matching query (async).
 
         Args:
             query: Gmail search query (e.g., 'in:inbox category:promotions newer_than:7d')
@@ -384,7 +356,8 @@ class GmailClient:
             GmailAPIError: For other errors
 
         Usage:
-            response = client.list_messages(query='in:inbox category:promotions', max_results=100)
+            client = GmailClient(mailbox)
+            response = await client.list_messages(query='in:inbox category:promotions', max_results=100)
             for msg in response['messages']:
                 print(msg['id'])
         """
@@ -419,7 +392,7 @@ class GmailClient:
             return service.users().messages().list(**params).execute()
 
         # Execute with retry and rate limiting
-        response = self._execute_with_retry(operation, "list_messages", quota_units=5)
+        response = await self._execute_with_retry_async(operation, "list_messages", quota_units=5)
 
         # Log results
         message_count = len(response.get("messages", []))
@@ -434,14 +407,14 @@ class GmailClient:
 
         return response
 
-    def get_message(
+    async def get_message(
         self,
         message_id: str,
         format: str = "metadata",
         metadata_headers: Optional[List[str]] = None
     ) -> Dict:
         """
-        Get message metadata.
+        Get message metadata (async).
 
         CRITICAL: Always use format='metadata' to avoid fetching full email body.
 
@@ -466,7 +439,8 @@ class GmailClient:
             GmailAPIError: For other errors
 
         Usage:
-            metadata = client.get_message(message_id='abc123', format='metadata')
+            client = GmailClient(mailbox)
+            metadata = await client.get_message(message_id='abc123', format='metadata')
             subject = next((h['value'] for h in metadata['payload']['headers'] if h['name'] == 'Subject'), None)
         """
         # SECURITY CHECK: Never allow full format (contains email body)
@@ -501,16 +475,16 @@ class GmailClient:
             return service.users().messages().get(**params).execute()
 
         # Execute with retry and rate limiting
-        return self._execute_with_retry(operation, f"get_message(message_id={message_id})", quota_units=5)
+        return await self._execute_with_retry_async(operation, f"get_message(message_id={message_id})", quota_units=5)
 
-    def modify_message(
+    async def modify_message(
         self,
         message_id: str,
         add_label_ids: Optional[List[str]] = None,
         remove_label_ids: Optional[List[str]] = None
     ) -> Dict:
         """
-        Modify message labels (used for archive, mark read, apply labels).
+        Modify message labels (used for archive, mark read, apply labels) (async).
 
         Args:
             message_id: Gmail message ID
@@ -526,12 +500,17 @@ class GmailClient:
             GmailAPIError: For other errors
 
         Usage:
+            client = GmailClient(mailbox)
             # Archive email (remove from inbox)
-            client.modify_message(message_id='abc123', remove_label_ids=['INBOX'])
+            await client.modify_message(message_id='abc123', remove_label_ids=['INBOX'])
 
             # Mark as read
-            client.modify_message(message_id='abc123', remove_label_ids=['UNREAD'])
+            await client.modify_message(message_id='abc123', remove_label_ids=['UNREAD'])
         """
+        # Check rate limit before API call
+        await self._check_rate_limit_async(quota_units=5)
+
+        # Apply basic rate limiting
         self._rate_limit()
 
         try:
@@ -566,9 +545,9 @@ class GmailClient:
         except HttpError as e:
             self._handle_error(e, f"modify_message(message_id={message_id})")
 
-    def trash_message(self, message_id: str) -> Dict:
+    async def trash_message(self, message_id: str) -> Dict:
         """
-        Move message to trash (30-day recovery window).
+        Move message to trash (30-day recovery window) (async).
 
         CRITICAL: This uses Gmail's trash operation (reversible).
         NEVER use delete operation (permanent, no recovery).
@@ -585,9 +564,14 @@ class GmailClient:
             GmailAPIError: For other errors
 
         Usage:
-            client.trash_message(message_id='abc123')
+            client = GmailClient(mailbox)
+            await client.trash_message(message_id='abc123')
             # Email moved to trash, auto-deletes after 30 days
         """
+        # Check rate limit before API call
+        await self._check_rate_limit_async(quota_units=5)
+
+        # Apply basic rate limiting
         self._rate_limit()
 
         try:
@@ -612,9 +596,9 @@ class GmailClient:
         except HttpError as e:
             self._handle_error(e, f"trash_message(message_id={message_id})")
 
-    def untrash_message(self, message_id: str) -> Dict:
+    async def untrash_message(self, message_id: str) -> Dict:
         """
-        Remove message from trash (undo trash operation).
+        Remove message from trash (undo trash operation) (async).
 
         Args:
             message_id: Gmail message ID
@@ -628,9 +612,14 @@ class GmailClient:
             GmailAPIError: For other errors
 
         Usage:
-            client.untrash_message(message_id='abc123')
+            client = GmailClient(mailbox)
+            await client.untrash_message(message_id='abc123')
             # Email restored from trash to inbox
         """
+        # Check rate limit before API call
+        await self._check_rate_limit_async(quota_units=5)
+
+        # Apply basic rate limiting
         self._rate_limit()
 
         try:
@@ -655,9 +644,9 @@ class GmailClient:
         except HttpError as e:
             self._handle_error(e, f"untrash_message(message_id={message_id})")
 
-    def get_labels(self) -> List[Dict]:
+    async def get_labels(self) -> List[Dict]:
         """
-        Get list of all labels for this mailbox.
+        Get list of all labels for this mailbox (async).
 
         Returns:
             List of label dicts with:
@@ -671,9 +660,14 @@ class GmailClient:
             GmailAPIError: For other errors
 
         Usage:
-            labels = client.get_labels()
+            client = GmailClient(mailbox)
+            labels = await client.get_labels()
             receipt_label = next((l for l in labels if l['name'] == 'Receipts'), None)
         """
+        # Check rate limit before API call
+        await self._check_rate_limit_async(quota_units=5)
+
+        # Apply basic rate limiting
         self._rate_limit()
 
         try:
@@ -692,9 +686,9 @@ class GmailClient:
         except HttpError as e:
             self._handle_error(e, "get_labels")
 
-    def create_label(self, name: str) -> Dict:
+    async def create_label(self, name: str) -> Dict:
         """
-        Create a new label.
+        Create a new label (async).
 
         Args:
             name: Label name (e.g., 'Receipts')
@@ -711,9 +705,14 @@ class GmailClient:
             GmailAPIError: For other errors
 
         Usage:
-            label = client.create_label(name='Receipts')
+            client = GmailClient(mailbox)
+            label = await client.create_label(name='Receipts')
             label_id = label['id']
         """
+        # Check rate limit before API call
+        await self._check_rate_limit_async(quota_units=5)
+
+        # Apply basic rate limiting
         self._rate_limit()
 
         try:
