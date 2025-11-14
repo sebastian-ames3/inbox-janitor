@@ -330,9 +330,8 @@ class TestSafetyRailsFunction:
         assert override_reason is None
 
 
-@pytest.mark.skip(reason="TODO: Fix 'offer' false positive in exception keywords")
 class TestHasExceptionKeyword:
-    """Test the check_exception_keywords helper function."""
+    """Test the check_exception_keywords helper function with negative matching."""
 
     def test_detects_keyword_in_subject(self):
         """Test that exception keywords are detected in subject."""
@@ -361,11 +360,138 @@ class TestHasExceptionKeyword:
         )
         assert check_exception_keywords(metadata) is not None
 
-    def test_no_false_positives(self):
-        """Test that normal words don't trigger exception."""
+    def test_no_false_positives_marketing_offer(self):
+        """Test that marketing offers don't trigger exception (negative keywords)."""
         metadata = EmailMetadata(
             message_id="test4", thread_id="thread4",
             from_address="test@example.com", from_name="Test", from_domain="example.com",
             subject="Check out our sale!", snippet="Limited time offer", received_at=datetime.utcnow()
         )
+        # "Limited time offer" should be caught by negative keywords
         assert check_exception_keywords(metadata) is None
+
+    def test_job_offer_protected(self):
+        """Test that job offers are protected (exception keyword)."""
+        metadata = EmailMetadata(
+            message_id="test5", thread_id="thread5",
+            from_address="hr@company.com", from_name="HR", from_domain="company.com",
+            subject="Job offer for Senior Engineer", snippet="We are pleased to offer you the position",
+            received_at=datetime.utcnow()
+        )
+        # "Job offer" should be protected
+        override = check_exception_keywords(metadata)
+        assert override is not None
+        assert override.new_action in [ClassificationAction.KEEP, ClassificationAction.ARCHIVE]
+
+    def test_special_offer_not_protected(self):
+        """Test that special offers are NOT protected (negative keyword disqualifies)."""
+        metadata = EmailMetadata(
+            message_id="test6", thread_id="thread6",
+            from_address="marketing@store.com", from_name="Store", from_domain="store.com",
+            subject="Special offer just for you!", snippet="50% off everything",
+            received_at=datetime.utcnow()
+        )
+        # "Special offer" should be caught by negative keywords
+        assert check_exception_keywords(metadata) is None
+
+    def test_exclusive_offer_not_protected(self):
+        """Test that exclusive offers are NOT protected (negative keyword)."""
+        metadata = EmailMetadata(
+            message_id="test7", thread_id="thread7",
+            from_address="sales@vendor.com", from_name="Vendor", from_domain="vendor.com",
+            subject="Exclusive offer for our VIP customers", snippet="Don't miss out",
+            received_at=datetime.utcnow()
+        )
+        # "Exclusive offer" should be caught by negative keywords
+        assert check_exception_keywords(metadata) is None
+
+
+class TestSmartShortSubject:
+    """Test smart short subject detection logic."""
+
+    def test_short_personal_subject_flagged(self):
+        """Test that short personal subjects are flagged."""
+        from app.modules.classifier.safety_rails import check_short_subject
+
+        metadata = EmailMetadata(
+            message_id="test8", thread_id="thread8",
+            from_address="friend@gmail.com", from_name="Friend", from_domain="gmail.com",
+            subject="Hi",
+            gmail_labels=["INBOX"],  # No promotional category
+            received_at=datetime.utcnow()
+        )
+        override = check_short_subject(metadata)
+        assert override is not None
+        assert override.new_action == ClassificationAction.REVIEW
+
+    def test_short_promo_subject_not_flagged(self):
+        """Test that short promotional subjects are NOT flagged."""
+        from app.modules.classifier.safety_rails import check_short_subject
+
+        metadata = EmailMetadata(
+            message_id="test9", thread_id="thread9",
+            from_address="deals@store.com", from_name="Store", from_domain="store.com",
+            subject="Sale",
+            gmail_labels=["INBOX", "CATEGORY_PROMOTIONS"],
+            received_at=datetime.utcnow()
+        )
+        override = check_short_subject(metadata)
+        assert override is None  # Should NOT be flagged (promotional category)
+
+    def test_short_allcaps_flagged(self):
+        """Test that short all-caps subjects are flagged (personal urgency)."""
+        from app.modules.classifier.safety_rails import check_short_subject
+
+        metadata = EmailMetadata(
+            message_id="test10", thread_id="thread10",
+            from_address="boss@company.com", from_name="Boss", from_domain="company.com",
+            subject="URGENT",
+            gmail_labels=["INBOX"],
+            received_at=datetime.utcnow()
+        )
+        override = check_short_subject(metadata)
+        assert override is not None
+        assert "allcaps" in override.triggered_by
+
+    def test_short_subject_with_personal_pronouns_flagged(self):
+        """Test that short subjects with personal pronouns are flagged."""
+        from app.modules.classifier.safety_rails import check_short_subject
+
+        metadata = EmailMetadata(
+            message_id="test11", thread_id="thread11",
+            from_address="friend@gmail.com", from_name="Friend", from_domain="gmail.com",
+            subject="Me",
+            gmail_labels=["INBOX"],
+            received_at=datetime.utcnow()
+        )
+        override = check_short_subject(metadata)
+        assert override is not None
+        assert "personal" in override.triggered_by
+
+    def test_short_promo_word_not_flagged(self):
+        """Test that short promo words are NOT flagged."""
+        from app.modules.classifier.safety_rails import check_short_subject
+
+        metadata = EmailMetadata(
+            message_id="test12", thread_id="thread12",
+            from_address="deals@store.com", from_name="Store", from_domain="store.com",
+            subject="Free",
+            gmail_labels=["INBOX"],
+            received_at=datetime.utcnow()
+        )
+        override = check_short_subject(metadata)
+        assert override is None  # "Free" is a common promo word
+
+    def test_short_from_marketing_domain_not_flagged(self):
+        """Test that short subjects from marketing domains are NOT flagged."""
+        from app.modules.classifier.safety_rails import check_short_subject
+
+        metadata = EmailMetadata(
+            message_id="test13", thread_id="thread13",
+            from_address="noreply@sendgrid.net", from_name="Sender", from_domain="sendgrid.net",
+            subject="News",
+            gmail_labels=["INBOX"],
+            received_at=datetime.utcnow()
+        )
+        override = check_short_subject(metadata)
+        assert override is None  # sendgrid.net is a known marketing platform
