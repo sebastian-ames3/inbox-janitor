@@ -448,7 +448,7 @@ class TestErrorHandling:
         ]
 
         # Execute
-        client = GmailClient(mock_mailbox, max_retries=3)
+        client = GmailClient(mock_mailbox, rate_limiter=mock_rate_limiter, max_retries=3)
         result = await client.list_messages()
 
         # Verify - should retry and succeed
@@ -491,7 +491,7 @@ class TestErrorHandling:
         ]
 
         # Execute
-        client = GmailClient(mock_mailbox, max_retries=3)
+        client = GmailClient(mock_mailbox, rate_limiter=mock_rate_limiter, max_retries=3)
         result = await client.list_messages()
 
         # Verify
@@ -535,7 +535,7 @@ class TestErrorHandling:
         ]
 
         # Execute
-        client = GmailClient(mock_mailbox, max_retries=3)
+        client = GmailClient(mock_mailbox, rate_limiter=mock_rate_limiter, max_retries=3)
         result = await client.list_messages()
 
         # Verify
