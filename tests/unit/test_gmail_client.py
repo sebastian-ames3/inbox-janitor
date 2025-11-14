@@ -237,12 +237,13 @@ class TestGetMessage:
         # Verify
         assert result["id"] == "msg123"
 
-    def test_get_message_with_full_format_raises_error(self, mock_mailbox):
+    @pytest.mark.asyncio
+    async def test_get_message_with_full_format_raises_error(self, mock_mailbox, mock_rate_limiter):
         """Test get_message with format='full' raises ValueError (security check)."""
         client = GmailClient(mock_mailbox, rate_limiter=mock_rate_limiter)
 
         with pytest.raises(ValueError, match="Invalid format 'full'"):
-            client.get_message(message_id="msg123", format="full")
+            await client.get_message(message_id="msg123", format="full")
 
 
 # Test trash_message
@@ -467,7 +468,7 @@ class TestErrorHandling:
         mock_service.users().messages().list().execute.side_effect = create_http_error(403, "Forbidden")
 
         # Execute & Verify
-        client = GmailClient(mock_mailbox, max_retries=1)
+        client = GmailClient(mock_mailbox, rate_limiter=mock_rate_limiter, max_retries=1)
         with pytest.raises(GmailAuthError, match="Access forbidden"):
             await client.list_messages()
 
@@ -512,7 +513,7 @@ class TestErrorHandling:
         mock_service.users().messages().list().execute.side_effect = create_http_error(429, "Quota exceeded")
 
         # Execute & Verify
-        client = GmailClient(mock_mailbox, max_retries=2)
+        client = GmailClient(mock_mailbox, rate_limiter=mock_rate_limiter, max_retries=2)
         with pytest.raises(GmailQuotaExceeded):
             await client.list_messages()
 
