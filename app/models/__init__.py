@@ -10,6 +10,8 @@ from app.models.email_action import EmailAction
 from app.models.user_settings import UserSettings
 from app.models.sender_stats import SenderStats
 from app.models.email_metadata_db import EmailMetadataDB
+from app.models.security_violations import SecurityViolation
+from app.models.worker_pause_events import WorkerPauseEvent
 
 __all__ = [
     "User",
@@ -18,4 +20,6 @@ __all__ = [
     "UserSettings",
     "SenderStats",
     "EmailMetadataDB",
+    "SecurityViolation",
+    "WorkerPauseEvent",
 ]
