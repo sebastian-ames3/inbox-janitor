@@ -70,7 +70,24 @@ async def register_gmail_watch(mailbox_id: UUID) -> dict:
             raise ValueError(f"Mailbox {mailbox_id} not found")
 
         if not mailbox.is_active:
-            logger.warning(f"Skipping watch registration for inactive mailbox {mailbox_id}")
+            # Handle inactive mailbox with user notification
+            from app.core.alerting import handle_inactive_mailbox
+            from app.models.user import User
+
+            # Get user email for notification
+            user_result = await session.execute(
+                select(User).where(User.id == mailbox.user_id)
+            )
+            user = user_result.scalar_one_or_none()
+
+            if user:
+                await handle_inactive_mailbox(
+                    session=session,
+                    mailbox_id=mailbox_id,
+                    user_id=mailbox.user_id,
+                    user_email=user.email
+                )
+
             return {"history_id": mailbox.last_history_id, "expiration": None}
 
         try:

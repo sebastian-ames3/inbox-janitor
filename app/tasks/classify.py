@@ -50,15 +50,6 @@ def classify_email_tier1(self, mailbox_id: str, metadata_dict: dict):
         classify_email_tier1.delay(mailbox_id, metadata.dict())
     """
     import asyncio
-    import os
-
-    # Check if worker is paused
-    if os.getenv('WORKER_PAUSED', 'false').lower() == 'true':
-        logger.info(f"Worker paused - skipping classification for {metadata_dict.get('message_id')}")
-        return {
-            "status": "paused",
-            "message": "Worker is paused - classification skipped"
-        }
 
     logger.info(
         f"Classifying email {metadata_dict.get('message_id')} for mailbox {mailbox_id}",
@@ -77,6 +68,24 @@ def classify_email_tier1(self, mailbox_id: str, metadata_dict: dict):
         from app.models.mailbox import Mailbox
 
         try:
+            # Check if worker is paused (with monitoring and alerting)
+            async with AsyncSessionLocal() as pause_check_session:
+                from app.core.alerting import check_worker_paused
+                from uuid import UUID
+
+                is_paused = await check_worker_paused(
+                    session=pause_check_session,
+                    mailbox_id=UUID(mailbox_id) if mailbox_id else None,
+                    message_id=metadata_dict.get('message_id')
+                )
+
+                if is_paused:
+                    await pause_check_session.commit()
+                    return {
+                        "status": "paused",
+                        "message": "Worker is paused - classification skipped"
+                    }
+
             # Reconstruct EmailMetadata from dict
             metadata = EmailMetadata(**metadata_dict)
 
