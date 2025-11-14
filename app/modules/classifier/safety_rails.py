@@ -106,12 +106,30 @@ EXCEPTION_KEYWORDS = [
     "investment",
 ]
 
+# Negative keywords that DISQUALIFY emails from exception keyword protection
+# These indicate marketing emails that should NOT be protected
+NEGATIVE_KEYWORDS = [
+    "special offer",
+    "limited offer",
+    "exclusive offer",
+    "limited time offer",
+    "limited-time offer",
+    "flash sale",
+    "today only",
+    "deal of the day",
+    "discount",
+    "% off",
+    "percent off",
+    "sale ends",
+]
+
 
 def check_exception_keywords(metadata: EmailMetadata) -> Optional[SafetyOverride]:
     """
     Check if email contains exception keywords.
 
     Exception keywords indicate important content that should never be trashed.
+    Negative keywords disqualify emails (marketing emails with "special offer", etc.)
 
     Args:
         metadata: Email metadata
@@ -123,9 +141,26 @@ def check_exception_keywords(metadata: EmailMetadata) -> Optional[SafetyOverride
         override = check_exception_keywords(metadata)
         if override:
             action = override.new_action
+
+    Example:
+        "Job offer for Senior Engineer" -> Protected (exception keyword)
+        "Special offer: 50% off" -> NOT protected (negative keyword)
     """
     # Combine subject and snippet for checking
     text_to_check = f"{metadata.subject or ''} {metadata.snippet or ''}".lower()
+
+    # Check negative keywords FIRST (disqualify marketing emails)
+    for negative_kw in NEGATIVE_KEYWORDS:
+        if negative_kw in text_to_check:
+            logger.debug(
+                f"Negative keyword '{negative_kw}' found - NOT protecting message {metadata.message_id}",
+                extra={
+                    "message_id": metadata.message_id,
+                    "negative_keyword": negative_kw,
+                    "from_address": metadata.from_address
+                }
+            )
+            return None  # Disqualified - do NOT protect
 
     # Check for exception keywords
     found_keywords = [kw for kw in EXCEPTION_KEYWORDS if kw in text_to_check]
@@ -252,31 +287,138 @@ def check_recent_thread(metadata: EmailMetadata) -> Optional[SafetyOverride]:
 
 def check_short_subject(metadata: EmailMetadata) -> Optional[SafetyOverride]:
     """
-    Check if subject is very short (may be personal/important).
+    Check if subject is very short AND likely personal (smart detection).
 
-    Short subjects like "Hi" or "Question" are often personal emails.
+    Short subjects are ONLY flagged if they appear to be personal emails.
+    Marketing emails with short subjects ("Sale", "Deal") are NOT flagged.
+
+    Smart Logic:
+    - Short subject (<5 chars) + promotional category = NOT flagged (likely marketing)
+    - Short subject + all caps (URGENT, HELP, FYI) = flagged (personal urgency)
+    - Short subject + personal pronouns (you, I, me) = flagged (personal language)
+    - Short subject + common promo words (sale, deal, offer) = NOT flagged (marketing)
+    - Short subject + marketing domain = NOT flagged (known sender platform)
+    - Default: Flag unknown short subjects as caution (err on side of safety)
 
     Args:
         metadata: Email metadata
 
     Returns:
         SafetyOverride if triggered, None otherwise
+
+    Example:
+        "Hi" from friend@gmail.com (no category) -> Flagged (personal)
+        "Sale" from CATEGORY_PROMOTIONS -> NOT flagged (marketing)
+        "URGENT" (all caps) -> Flagged (personal urgency)
+        "Free" from sendgrid.net -> NOT flagged (marketing platform)
     """
     if not metadata.subject:
         return None
 
-    # If subject is 1-2 words and no promotional signals, be cautious
-    words = metadata.subject.split()
+    subject_clean = metadata.subject.strip()
 
-    if len(words) <= 2 and not metadata.is_promotional:
+    # Check if all caps FIRST (personal urgency: "URGENT", "HELP", "FYI")
+    # This applies regardless of length
+    if subject_clean.isupper() and len(subject_clean) > 1:
+        logger.info(
+            f"All-caps subject '{subject_clean}' - flagging as potentially important",
+            extra={
+                "message_id": metadata.message_id,
+                "subject": subject_clean,
+                "from_address": metadata.from_address
+            }
+        )
         return SafetyOverride(
-            triggered_by="short_subject",
+            triggered_by="short_subject_allcaps",
             original_action=ClassificationAction.TRASH,
             new_action=ClassificationAction.REVIEW,
-            reason="Very short subject without promotional category - may be personal"
+            reason=f"All-caps subject '{subject_clean}' - may be personal/urgent"
         )
 
-    return None
+    # Not short - no other concerns (unless all-caps which was checked above)
+    if len(subject_clean) >= 5:
+        return None
+
+    # Promotional category + short subject = likely marketing ("Sale", "Deal")
+    if metadata.is_promotional:
+        logger.debug(
+            f"Short subject '{subject_clean}' in promotional category - NOT flagging (likely marketing)",
+            extra={
+                "message_id": metadata.message_id,
+                "subject": subject_clean,
+                "from_address": metadata.from_address
+            }
+        )
+        return None
+
+    # Check for personal pronouns (not common in marketing)
+    personal_words = ["you", "your", "i", "me", "my", "our", "we"]
+    subject_words = subject_clean.lower().split()
+    if any(word in subject_words for word in personal_words):
+        logger.info(
+            f"Short subject '{subject_clean}' contains personal pronouns - flagging",
+            extra={
+                "message_id": metadata.message_id,
+                "subject": subject_clean,
+                "from_address": metadata.from_address
+            }
+        )
+        return SafetyOverride(
+            triggered_by="short_subject_personal",
+            original_action=ClassificationAction.TRASH,
+            new_action=ClassificationAction.REVIEW,
+            reason=f"Short subject '{subject_clean}' with personal language - may be important"
+        )
+
+    # Check if from known marketing domain (don't flag)
+    marketing_domains = [
+        "sendgrid.net", "mailchimp", "klaviyo", "customeriomail.com",
+        "campaignmonitor.com", "mailgun", "amazonses.com", "sparkpostmail.com",
+        ".email.", "newsletter", "marketing", "promo", "offers"
+    ]
+    from_domain_lower = metadata.from_domain.lower()
+    # Use more specific matching to avoid false positives (e.g., "mail." matching "gmail.com")
+    if any(domain in from_domain_lower for domain in marketing_domains):
+        logger.debug(
+            f"Short subject '{subject_clean}' from marketing domain '{metadata.from_domain}' - NOT flagging",
+            extra={
+                "message_id": metadata.message_id,
+                "subject": subject_clean,
+                "from_domain": metadata.from_domain
+            }
+        )
+        return None
+
+    # Check if subject is common promo word (don't flag)
+    promo_words = ["sale", "deal", "offer", "free", "save", "off"]
+    if subject_clean.lower() in promo_words:
+        logger.debug(
+            f"Short subject '{subject_clean}' is common promo word - NOT flagging",
+            extra={
+                "message_id": metadata.message_id,
+                "subject": subject_clean,
+                "from_address": metadata.from_address
+            }
+        )
+        return None
+
+    # Default: flag unknown short subjects as caution
+    # Better to err on the side of reviewing than trashing
+    logger.info(
+        f"Short subject '{subject_clean}' with no clear marketing signals - flagging for review",
+        extra={
+            "message_id": metadata.message_id,
+            "subject": subject_clean,
+            "from_address": metadata.from_address,
+            "gmail_category": metadata.gmail_category
+        }
+    )
+    return SafetyOverride(
+        triggered_by="short_subject",
+        original_action=ClassificationAction.TRASH,
+        new_action=ClassificationAction.REVIEW,
+        reason=f"Short subject '{subject_clean}' without clear category - may be personal"
+    )
 
 
 def apply_safety_rails(metadata: EmailMetadata, proposed_action: ClassificationAction) -> tuple[ClassificationAction, Optional[SafetyOverride]]:
@@ -310,7 +452,7 @@ def apply_safety_rails(metadata: EmailMetadata, proposed_action: ClassificationA
         check_important,         # High priority: Gmail marked important
         check_exception_keywords, # High priority: contains critical keywords
         check_recent_thread,     # Medium priority: recent email (3 days)
-        # check_short_subject is disabled for now (too many false positives)
+        check_short_subject,     # Medium priority: smart short subject detection (re-enabled with improved logic)
     ]
 
     for check_func in safety_checks:
