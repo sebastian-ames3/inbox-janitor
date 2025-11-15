@@ -1,24 +1,29 @@
 # Inbox Janitor - Development Context
 
-**Last Updated:** 2025-11-13 (Late Afternoon)
-**Status:** 🚨 CRITICAL: Security Audit Complete - Safety Bypasses Discovered
-**Current Phase:** Safety Mechanism Restoration (Blocking all other work)
+**Last Updated:** 2025-11-15
+**Status:** ⚠️ Safety Restoration In Progress (2 of 5 PRDs Complete)
+**Current Phase:** Post-Incident Recovery & PRD-0007 Next
 
 ---
 
 ## 📍 Project Status
 
-**🚨 CRITICAL DISCOVERY (2025-11-13 Late Afternoon):**
-- 🔍 **Comprehensive Security Audit Completed**
-  - Discovered **9 CRITICAL** and **4 HIGH** severity safety bypasses in production
-  - Most severe: Rate limiting completely bypassed in async contexts (allows unlimited Gmail API calls)
-  - Created 5 detailed PRDs with implementation plans (158 hours total)
-  - **ALL other work paused until safety mechanisms restored**
-  - See: `tasks/SECURITY-AUDIT-2025-11-13.md` for full findings
+**✅ COMPLETED PRDs (2025-11-14 - 2025-11-15):**
+- ✅ **PRD-0005: Safety Rails Restoration** (PR #86) - Deployed
+- ✅ **PRD-0006: Security Monitoring & Alerting** (PR #87, #88, #89) - Deployed with hotfixes
+
+**🚨 INCIDENT (2025-11-15):**
+- **Alert Rate Limiting Failure** - 140 duplicate admin alerts sent during testing
+- **Impact:** Postmark quota exhausted (100 emails/month + 40 overage)
+- **Root Cause:** No rate limiting in `send_admin_alert()` function
+- **Fix:** PR #89 - Redis-based rate limiting (5 min window)
+- **Status:** RESOLVED - Rate limiting deployed and verified
+- **Lesson:** NEVER test alerts in production without rate limiting
+- **See:** CHANGELOG.md "2025-11-15 INCIDENT" for full post-mortem
 
 **🛠️ Safety Restoration Plan (Priority Order):**
 
-**Phase 1: CRITICAL (P0) - Weeks 1-2 (~8 days)**
+**Phase 1: CRITICAL (P0) - Weeks 1-2**
 1. **PRD-0004: Rate Limiting Architecture Fix** (2 days)
    - Refactor GmailClient to fully async
    - Eliminate rate limit bypass in async contexts
@@ -26,17 +31,18 @@
    - See: `tasks/PRD-0004-rate-limiting-architecture-fix.md`
 
 2. **PRD-0005: Safety Rails Restoration** (3 days)
-   - Re-enable short subject detection with smart logic
-   - Fix exception keyword false positives (phrase-based matching)
-   - Test on 1000+ emails before deployment
-   - Status: ⏳ Ready to implement
+   - Status: ✅ **COMPLETED** (PR #86)
+   - Smart short subject detection deployed
+   - Negative keyword matching fixed
    - See: `tasks/PRD-0005-safety-rails-restoration.md`
 
 3. **PRD-0006: Security Monitoring & Alerting** (3 days)
-   - Admin alerts within 60 seconds of security events
-   - User notifications for service degradation
-   - Forensic logging for investigations
-   - Status: ⏳ Ready to implement
+   - Status: ✅ **COMPLETED with hotfixes** (PR #87, #88, #89)
+   - Admin alerts operational with rate limiting
+   - Worker pause monitoring active
+   - Sentry body content detection alerting
+   - Inactive mailbox user notifications
+   - **CRITICAL LESSON:** Always include rate limiting in alert systems
    - See: `tasks/PRD-0006-security-monitoring-alerting.md`
 
 **Phase 2: HIGH (P1) - Weeks 3-5 (~12 days)**
