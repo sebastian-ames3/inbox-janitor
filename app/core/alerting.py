@@ -60,11 +60,12 @@ async def send_admin_alert(
         notify_via = ["email"]
 
     # Build alert payload
+    # Note: Don't use 'message' key in extra - conflicts with logging.LogRecord
     alert = {
         "timestamp": datetime.utcnow().isoformat(),
         "severity": severity,
         "title": title,
-        "message": message,
+        "alert_message": message,  # Renamed from 'message' to avoid logging conflict
         "environment": os.getenv("ENVIRONMENT", "production"),
     }
 
