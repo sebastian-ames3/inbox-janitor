@@ -32,10 +32,14 @@ async def send_admin_alert(
     message: str,
     severity: str = "MEDIUM",
     notify_via: Optional[List[str]] = None,
-    extra_data: Optional[dict] = None
+    extra_data: Optional[dict] = None,
+    rate_limit_seconds: int = 300  # Default: 5 minutes between same alert
 ) -> bool:
     """
-    Send alert to admin via multiple channels.
+    Send alert to admin via multiple channels with rate limiting.
+
+    Deduplicates alerts by title - only sends once per rate_limit_seconds.
+    This prevents alert spam when the same issue triggers multiple times.
 
     Args:
         title: Alert title (e.g., "Worker Paused >5 Minutes")
@@ -43,6 +47,7 @@ async def send_admin_alert(
         severity: "CRITICAL", "HIGH", "MEDIUM", "LOW"
         notify_via: ["email", "sms", "slack"] (default: ["email"])
         extra_data: Additional metadata to include (optional)
+        rate_limit_seconds: Minimum seconds between sending same alert (default: 300)
 
     Returns:
         True if alert sent successfully via at least one channel
@@ -52,12 +57,41 @@ async def send_admin_alert(
         ...     title="🚨 Worker Paused >5 Minutes",
         ...     message="Classification worker paused for 320s. Set WORKER_PAUSED=false to resume.",
         ...     severity="HIGH",
-        ...     notify_via=["email"]
+        ...     notify_via=["email"],
+        ...     rate_limit_seconds=300  # Only send once per 5 minutes
         ... )
         True
     """
     if notify_via is None:
         notify_via = ["email"]
+
+    # Check if we've sent this alert recently (rate limiting)
+    from app.core.config import settings
+    import redis
+
+    try:
+        redis_client = redis.from_url(settings.CELERY_BROKER_URL, socket_connect_timeout=2)
+
+        # Create unique key for this alert type
+        alert_key = f"admin_alert:{title}"
+
+        # Check if this alert was sent recently
+        if redis_client.get(alert_key):
+            logger.info(
+                f"Rate limiting: Alert '{title}' already sent within {rate_limit_seconds}s, skipping",
+                extra={"title": title, "rate_limit_seconds": rate_limit_seconds}
+            )
+            redis_client.close()
+            return False  # Alert rate-limited
+
+        # Set the rate limit key (expires after rate_limit_seconds)
+        redis_client.setex(alert_key, rate_limit_seconds, "1")
+        redis_client.close()
+
+    except Exception as e:
+        # If Redis fails, still send the alert (fail open, not closed)
+        logger.warning(f"Redis rate limiting check failed, sending alert anyway: {e}")
+        pass
 
     # Build alert payload
     # Note: Don't use 'message' key in extra - conflicts with logging.LogRecord
