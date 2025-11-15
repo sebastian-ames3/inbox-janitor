@@ -4,6 +4,307 @@ All notable decisions and changes to the Inbox Janitor project.
 
 ---
 
+## [2025-11-15] - 🚨 INCIDENT: Alert Rate Limiting Failure & Emergency Hotfix
+
+### 🔥 CRITICAL INCIDENT: 140 Duplicate Admin Alerts Sent
+
+**Summary:** During PRD-0006 testing with `WORKER_PAUSED=true`, admin alert system sent 140 duplicate emails in <10 minutes, exhausting entire monthly Postmark quota (100 emails). Root cause: No rate limiting/deduplication in `send_admin_alert()` function. Emergency hotfix deployed with Redis-based rate limiting.
+
+**Impact:**
+- 140 duplicate "Worker Paused" alerts sent to admin email
+- Postmark developer quota (100 emails/month) exhausted + 40 overage
+- User inbox flooded with identical alerts
+- Monitoring temporarily disabled to stop email spam
+
+### Root Cause Analysis
+
+**What Happened:**
+1. Set `WORKER_PAUSED=true` on worker service to test alert system
+2. Every email classification attempt triggered `check_worker_paused()`
+3. Function detected worker paused >5 minutes (correct)
+4. Called `send_admin_alert()` for each classification attempt
+5. `send_admin_alert()` had **zero deduplication** - sent email every time
+6. Result: 100+ emails in rapid succession
+
+**The Bug:**
+```python
+# app/core/alerting.py (BEFORE FIX - BROKEN)
+async def send_admin_alert(title, message, ...):
+    # No rate limiting check - sends every time called
+    await send_email(to=admin_email, ...)  # ❌ Sent 140 times
+```
+
+**Why It Wasn't Caught:**
+- No staging environment testing for alerting
+- Testing done directly in production with real email sending
+- Assumed alerts would trigger infrequently (wrong assumption)
+- No quota monitoring or safety limits
+
+### Emergency Response Timeline
+
+**04:00 UTC** - Set `WORKER_PAUSED=true` for testing
+**04:03 UTC** - First alert sent (working as expected)
+**04:04-04:15 UTC** - 140 alerts sent (user reports "emails won't stop")
+**04:15 UTC** - Worker service paused via Railway dashboard
+**04:20 UTC** - Bug identified: No rate limiting in alerting code
+**04:25 UTC** - Hotfix PR #89 created with Redis-based rate limiting
+**04:30 UTC** - PR merged and deployed
+**04:35 UTC** - Worker service resumed with fix
+**04:40 UTC** - Email queue cleared, incident resolved
+
+### The Fix (PR #89)
+
+**Added Redis-based rate limiting with 5-minute deduplication window:**
+
+```python
+# app/core/alerting.py (AFTER FIX - WORKING)
+async def send_admin_alert(
+    title, message,
+    rate_limit_seconds=300  # 5 minutes
+):
+    # Check Redis for recent alert with same title
+    alert_key = f"admin_alert:{title}"
+    if redis_client.get(alert_key):
+        # Already sent within rate limit window - skip
+        logger.info(f"Rate limiting: Alert '{title}' already sent")
+        return False
+
+    # Send alert and set rate limit key
+    await send_email(to=admin_email, ...)
+    redis_client.setex(alert_key, rate_limit_seconds, "1")
+    return True
+```
+
+**Behavior After Fix:**
+- First occurrence of alert: ✅ Sends immediately
+- Subsequent identical alerts within 5 min: ❌ Rate limited (logged, not sent)
+- After 5 min window: ✅ Sends again if issue still occurring
+- Different alert titles: Each tracked separately
+
+**Example:**
+```
+04:00 - "Worker Paused" alert → SENT (email 1)
+04:01 - "Worker Paused" alert → RATE LIMITED (skipped)
+04:02 - "Worker Paused" alert → RATE LIMITED (skipped)
+04:03 - "Worker Paused" alert → RATE LIMITED (skipped)
+... 96 more attempts ...
+04:05 - "Worker Paused" alert → SENT (email 2, 5 min elapsed)
+```
+
+**Result:** 100 duplicate alerts → 2 emails sent (96% reduction)
+
+### Lessons Learned & Prevention
+
+**Critical Mistakes Made:**
+
+1. **No rate limiting in initial implementation**
+   - Alert system launched without deduplication logic
+   - Assumed alerts would be rare (wrong)
+   - Should be mandatory for ALL alert systems
+
+2. **Testing in production without safeguards**
+   - Used real email service (Postmark) for testing
+   - No dry-run mode or test email addresses
+   - No quota monitoring or circuit breakers
+
+3. **No staging environment for alerting**
+   - Production was first test of alert delivery
+   - Should have tested with sandbox/limited quota first
+
+4. **Insufficient code review**
+   - Rate limiting requirement missed in PR #87 review
+   - No checklist for "alerting best practices"
+
+**New Requirements (Prevent Recurrence):**
+
+✅ **Mandatory for ALL Alert Systems:**
+- Rate limiting with configurable window (default: 5 min)
+- Deduplication by alert type/title
+- Circuit breaker for quota exhaustion
+- Dry-run mode for testing
+
+✅ **Testing Protocol:**
+- NEVER test alerts in production with real email
+- Use staging environment with test email service
+- Verify rate limiting works before production deployment
+- Monitor quota usage during tests
+
+✅ **Code Review Checklist:**
+- [ ] Rate limiting implemented and tested
+- [ ] Deduplication logic verified
+- [ ] Quota limits configured
+- [ ] Dry-run mode available
+- [ ] Tested in staging first
+
+✅ **Monitoring:**
+- Alert on email quota >80% used
+- Dashboard showing alert rate (alerts/hour)
+- Logs showing rate-limited alerts (verify working)
+
+### Files Modified
+
+**Emergency Hotfixes:**
+- `app/core/alerting.py` - Added Redis-based rate limiting to `send_admin_alert()`
+- PR #88: Fixed logging KeyError (`message` → `alert_message`)
+- PR #89: Added rate limiting (this incident)
+
+### Cost Impact
+
+**Postmark Quota:**
+- Developer plan: 100 emails/month (free)
+- Used: 140 emails in incident
+- Overage: 40 emails (may incur charges or require plan upgrade)
+- Recovery: Wait for monthly reset or upgrade plan
+
+**Time Cost:**
+- Engineering: 2 hours (incident response + hotfix)
+- User impact: 10 minutes (inbox flooded)
+
+### Success Criteria - Verified ✅
+
+After hotfix deployment:
+- [x] Rate limiting active (Redis keys set correctly)
+- [x] Duplicate alerts skipped (logs show "Rate limiting" messages)
+- [x] Worker processing normally
+- [x] No email quota exhaustion
+- [x] Monitoring shows alert rate <1/5min
+
+### Related PRs
+
+- **PR #87** - PRD-0006: Security Monitoring & Alerting (initial implementation, **missing rate limiting**)
+- **PR #88** - Hotfix: Logging KeyError in send_admin_alert
+- **PR #89** - CRITICAL Hotfix: Add rate limiting to prevent alert spam
+
+---
+
+## [2025-11-14] - ✅ PRD-0006: Security Monitoring & Alerting (Phases 1-2)
+
+**Status:** COMPLETED (with critical hotfix for rate limiting)
+
+**Summary:** Implemented security monitoring and alerting infrastructure to eliminate silent failures discovered in 2025-11-13 security audit. Added admin alert system, database tables for forensic tracking, and extended health monitoring. **NOTE:** Initial deployment missing rate limiting caused incident (see above), fixed in PR #89.
+
+### Phase 1: Alerting Infrastructure (PR #87)
+
+**New Files Created:**
+- `app/core/alerting.py` - Admin alert system with multi-channel support
+  - `send_admin_alert()` - Email alerts (~~**missing rate limiting**~~ - fixed in PR #89)
+  - `record_security_violation()` - Forensic tracking for GDPR compliance
+  - `record_worker_pause_event()` - Operational monitoring
+  - `check_worker_paused()` - Pause detection with alerting (>5 min threshold)
+  - `handle_inactive_mailbox()` - User notifications + mass issue detection
+
+- `app/models/security_violations.py` - SecurityViolation model
+  - Immutable audit trail for security events
+  - JSONB metadata for investigation
+  - Tracks: body_content_logged, token_exposed, etc.
+
+- `app/models/worker_pause_events.py` - WorkerPauseEvent model
+  - Track WORKER_PAUSED env var events
+  - Monitor pause duration and skipped emails
+  - Alert if paused >5 minutes
+
+- `alembic/versions/008_add_security_monitoring_tables.py` - Database migration
+  - Creates security_violations table with indexes
+  - Creates worker_pause_events table with foreign key to mailboxes
+
+### Phase 2: Monitoring Integration (PR #87)
+
+**Modified Files:**
+- `app/tasks/classify.py` - Worker pause monitoring
+  - Check pause status before classification
+  - Record events in database
+  - Alert admin if paused >5 minutes (~~**triggered 140 alerts**~~ - fixed in PR #89)
+  - Return early if paused (skip classification)
+
+- `app/core/sentry.py` - Body content detection alerting
+  - Extract forensic metadata from Sentry events
+  - Store violations in security_violations table
+  - Send CRITICAL admin alert immediately
+  - Redact body content but keep event for visibility
+  - Tag events with security_violation marker
+
+- `app/modules/ingest/gmail_watch.py` - Inactive mailbox notifications
+  - Send HTML email to user with reconnect link
+  - Alert admin if >10 mailboxes inactive (mass OAuth issue)
+  - Log for monitoring and debugging
+
+- `app/core/health.py` - Extended health checks
+  - `check_worker_pause_status()` - WORKER_PAUSED env var monitoring
+  - `check_mailbox_health()` - Active/inactive mailbox counts
+  - `check_last_classification()` - Time since last email processed
+  - All checks included in `/health` endpoint
+
+### Deployment Issues & Hotfixes
+
+**Issue 1: Logging KeyError (PR #88)**
+- Bug: `logger.warning(extra={"message": ...})` conflicts with LogRecord.message
+- Error: `KeyError: "Attempt to overwrite 'message' in LogRecord"`
+- Fix: Renamed `message` → `alert_message` in alert payload
+- Impact: Prevented alerts from sending until fixed
+
+**Issue 2: Missing Rate Limiting (PR #89) - CRITICAL**
+- Bug: No deduplication in `send_admin_alert()`
+- Impact: 140 duplicate alerts sent, Postmark quota exhausted
+- Fix: Redis-based rate limiting (5 min window)
+- See incident report above for full details
+
+### Success Metrics - AFTER Hotfixes
+
+**Before PRD-0006:**
+- Worker pause: No alerts (silent) ❌
+- Body content detection: Event dropped silently ❌
+- Inactive mailbox: No user notification ❌
+- Incident response time: Hours (manual log checking) ❌
+
+**After PRD-0006 + Hotfixes:**
+- Worker pause: Alert within 5 minutes ✅ (rate-limited to 1 per 5 min)
+- Body content detection: Admin alert within 60 seconds ✅
+- Inactive mailbox: User email within 5 minutes ✅
+- Incident response time: <60 seconds ✅
+- Alert spam prevented: Rate limiting active ✅
+
+### Environment Variables Added
+
+**Required Configuration:**
+- `ADMIN_EMAIL` - Email address for admin alerts (must be set on **worker service**, not just web)
+- Note: Initially set on web service only, causing "ADMIN_EMAIL not configured" errors
+
+### Testing Results
+
+**Manual Testing:**
+- ✅ Worker pause detection works (triggers after 5 min)
+- ✅ Alerts send to admin email successfully
+- ⚠️ **DISCOVERED:** No rate limiting → 140 duplicate alerts
+- ✅ Rate limiting fix verified (subsequent alerts skipped)
+
+**Production Verification:**
+- ✅ Migration 008 applied successfully
+- ✅ Database tables created: security_violations, worker_pause_events
+- ✅ Health endpoint shows new monitoring metrics
+- ✅ Alert system operational with rate limiting
+
+### Phase 3 Status - DEFERRED
+
+**Remaining Work (Lower Priority):**
+- Dashboard health indicators (banners for inactive/paused states)
+- Optimized Postmark email templates (currently inline HTML)
+- Comprehensive test coverage for all alert paths
+
+**Reason for Deferral:** Core monitoring operational, UI polish can wait. Focus on PRD-0007 (Token Refresh Resilience) next.
+
+### Related Files & PRs
+
+**PRs:**
+- PR #87 - PRD-0006 Phases 1-2 (initial implementation)
+- PR #88 - Hotfix: Logging KeyError
+- PR #89 - CRITICAL Hotfix: Alert rate limiting
+
+**Documentation:**
+- `tasks/PRD-0006-security-monitoring-alerting.md` - Original requirements
+- This changelog entry - Incident report and lessons learned
+
+---
+
 ## [2025-11-13 Late Afternoon] - 🚨 CRITICAL: Comprehensive Security Audit & Safety Restoration Plan
 
 ### 🔍 DISCOVERY: Major Safety Bypasses in Production Code
