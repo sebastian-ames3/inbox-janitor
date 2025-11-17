@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Please reconnect your Gmail account</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f3f4f6;">
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #f3f4f6;">
+        <tr>
+            <td style="padding: 40px 20px;">
+                <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);">
+                    <!-- Header -->
+                    <tr>
+                        <td style="padding: 40px 40px 30px 40px; text-align: center; border-bottom: 1px solid #e5e7eb;">
+                            <h1 style="margin: 0; font-size: 32px; color: #111827;">🧹</h1>
+                            <h2 style="margin: 10px 0 0 0; font-size: 18px; font-weight: 600; color: #111827;">Inbox Janitor</h2>
+                        </td>
+                    </tr>
+
+                    <!-- Body -->
+                    <tr>
+                        <td style="padding: 40px;">
+                            <h2 style="margin: 0 0 20px 0; font-size: 20px; font-weight: 600; color: #dc2626;">🔒 Please reconnect your Gmail account</h2>
+
+                            <p style="margin: 0 0 16px 0; font-size: 16px; line-height: 1.5; color: #374151;">
+                                Hi there,
+                            </p>
+
+                            <p style="margin: 0 0 16px 0; font-size: 16px; line-height: 1.5; color: #374151;">
+                                Your Gmail authentication for <strong>{{ mailbox_email }}</strong> needs to be refreshed.
+                            </p>
+
+                            <div style="margin: 24px 0; padding: 20px; background-color: #eff6ff; border-left: 4px solid #2563eb; border-radius: 4px;">
+                                <p style="margin: 0 0 8px 0; font-size: 14px; font-weight: 600; color: #1e3a8a;">
+                                    Why this happened:
+                                </p>
+                                <p style="margin: 0; font-size: 14px; line-height: 1.5; color: #1e40af;">
+                                    {% if error_reason == "invalid_grant" %}
+                                    Your Gmail refresh token has expired or been revoked. This can happen if you changed your Google password or revoked Inbox Janitor's access.
+                                    {% elif error_reason == "token_revoked" %}
+                                    You revoked Inbox Janitor's access to your Gmail account through your Google Account settings.
+                                    {% elif error_reason == "forbidden" %}
+                                    Gmail denied access to your account. This may be a temporary issue or a change in permissions.
+                                    {% else %}
+                                    Gmail couldn't verify your authentication credentials ({{ error_reason }}).
+                                    {% endif %}
+                                </p>
+                            </div>
+
+                            <div style="margin: 24px 0; padding: 20px; background-color: #fef2f2; border-left: 4px solid #dc2626; border-radius: 4px;">
+                                <p style="margin: 0; font-size: 14px; line-height: 1.5; color: #991b1b;">
+                                    <strong>⚠️ Email classification has been paused</strong> for this account until you reconnect.
+                                </p>
+                            </div>
+
+                            <p style="margin: 24px 0 16px 0; font-size: 16px; line-height: 1.5; color: #374151;">
+                                To resume automatic inbox cleanup, please reconnect your Gmail account:
+                            </p>
+
+                            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                                <tr>
+                                    <td style="padding: 0;">
+                                        <a href="{{ reconnect_url }}" style="display: inline-block; padding: 14px 28px; margin: 8px 0; background-color: #2563eb; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;">
+                                            Reconnect Gmail Now
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <p style="margin: 32px 0 0 0; font-size: 14px; line-height: 1.5; color: #6b7280;">
+                                This is a one-click process. You'll be redirected to Google to grant permission again.
+                            </p>
+
+                            <p style="margin: 24px 0 0 0; font-size: 14px; line-height: 1.5; color: #6b7280;">
+                                — Inbox Janitor Team
+                            </p>
+                        </td>
+                    </tr>
+
+                    <!-- Footer -->
+                    <tr>
+                        <td style="padding: 30px 40px; background-color: #f9fafb; border-top: 1px solid #e5e7eb; border-radius: 0 0 8px 8px;">
+                            <p style="margin: 0; font-size: 12px; line-height: 1.5; color: #6b7280; text-align: center;">
+                                Questions? Reply to this email or visit our support page.
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
