@@ -6,8 +6,8 @@ Each mailbox stores encrypted OAuth tokens and Gmail watch state.
 
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, String, DateTime, Boolean, ForeignKey, Text
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import Column, String, DateTime, Boolean, ForeignKey, Text, Integer
+from sqlalchemy.dialects.postgresql import UUID, TIMESTAMP
 from sqlalchemy.orm import relationship
 
 from app.core.database import Base
@@ -47,6 +47,11 @@ class Mailbox(Base):
     last_synced_at = Column(DateTime, nullable=True)
     last_webhook_received_at = Column(DateTime, nullable=True)  # Track webhook delivery for fallback polling
     last_used_at = Column(DateTime, default=datetime.utcnow, nullable=True)  # Track user activity
+
+    # Token refresh tracking (PRD-0007: Token Refresh Resilience)
+    token_refresh_failed_at = Column(TIMESTAMP(timezone=True), nullable=True)  # When last token refresh failed
+    token_refresh_error = Column(Text, nullable=True)  # Error message from last failed refresh
+    token_refresh_attempt_count = Column(Integer, default=0, nullable=False)  # Number of consecutive failed attempts
 
     # Relationships
     user = relationship("User", back_populates="mailboxes")
