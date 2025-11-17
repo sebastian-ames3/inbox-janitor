@@ -19,9 +19,21 @@ from authlib.integrations.requests_client import OAuth2Session
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 import redis.asyncio as redis
+import requests
+from tenacity import (
+    retry,
+    stop_after_attempt,
+    wait_exponential,
+    retry_if_exception_type
+)
+from sqlalchemy.exc import OperationalError
+from redis.exceptions import ConnectionError as RedisConnectionError
+import logging
 
 from app.core.config import settings
 from app.core.security import encrypt_token, decrypt_token, generate_state_token
+
+logger = logging.getLogger(__name__)
 
 
 # Gmail API scopes
@@ -35,6 +47,51 @@ GMAIL_SCOPES = [
 # Google OAuth endpoints
 GOOGLE_AUTHORIZE_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
+
+
+# Custom exceptions for token refresh (PRD-0007)
+class OAuthPermanentError(Exception):
+    """
+    Raised for permanent OAuth failures where user must reconnect.
+
+    Examples:
+    - Invalid refresh token (invalid_grant)
+    - Token revoked by user
+    - OAuth app suspended by Google
+    - User changed Google password
+
+    These errors should NOT be retried - user must reconnect their Gmail account.
+    """
+    def __init__(self, message: str, error_code: str = None):
+        super().__init__(message)
+        self.error_code = error_code
+
+
+class OAuthTransientError(Exception):
+    """
+    Raised for transient OAuth failures where retry may succeed.
+
+    Examples:
+    - Network timeout
+    - Connection refused
+    - Database connection lost
+    - Redis connection pool exhausted
+    - Gmail API rate limit (429)
+    - Gmail API server error (500, 502, 503)
+
+    These errors SHOULD be retried with exponential backoff.
+    """
+    pass
+
+
+# Define transient failure exceptions for retry logic
+TRANSIENT_FAILURES = (
+    requests.Timeout,
+    requests.ConnectionError,
+    RedisConnectionError,
+    OperationalError,  # Database connection lost
+    OAuthTransientError,
+)
 
 
 class GmailOAuthManager:
@@ -277,6 +334,252 @@ gmail_oauth = GmailOAuthManager()
 
 # Helper functions for Gmail API operations
 
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=2, max=30),  # 2s, 4s, 8s
+    retry=retry_if_exception_type(TRANSIENT_FAILURES),
+    reraise=True
+)
+async def refresh_access_token_with_retry(
+    mailbox_id: str,
+    refresh_token_encrypted: str,
+) -> Tuple[str, datetime]:
+    """
+    Refresh OAuth access token with retry logic for transient failures.
+
+    Retries 3 times with exponential backoff (2s, 4s, 8s) for:
+    - Network timeouts
+    - Connection errors
+    - Database connection lost
+    - Redis connection errors
+
+    Immediate failure (no retry) for:
+    - Invalid refresh token (user must reconnect)
+    - OAuth app suspended (admin must fix)
+    - Token revoked by user (user must reconnect)
+
+    Args:
+        mailbox_id: Mailbox UUID (for logging)
+        refresh_token_encrypted: Encrypted refresh token from database
+
+    Returns:
+        Tuple of (encrypted_access_token, expires_at)
+
+    Raises:
+        OAuthPermanentError: User must reconnect (don't retry)
+        OAuthTransientError: After 3 retries failed
+    """
+    try:
+        # Decrypt refresh token
+        refresh_token_decrypted = decrypt_token(refresh_token_encrypted)
+
+        # Exchange refresh token for new access token
+        response = requests.post(
+            "https://oauth2.googleapis.com/token",
+            data={
+                "client_id": settings.GOOGLE_CLIENT_ID,
+                "client_secret": settings.GOOGLE_CLIENT_SECRET,
+                "refresh_token": refresh_token_decrypted,
+                "grant_type": "refresh_token"
+            },
+            timeout=10  # 10 second timeout
+        )
+
+        # Check for permanent failures (don't retry)
+        if response.status_code == 400:
+            error = response.json().get("error", "")
+
+            if error == "invalid_grant":
+                # Refresh token invalid/expired - user must reconnect
+                raise OAuthPermanentError(
+                    f"Invalid refresh token for mailbox {mailbox_id}. "
+                    f"User must reconnect Gmail account.",
+                    error_code="invalid_grant"
+                )
+
+        if response.status_code == 403:
+            # OAuth app suspended or token revoked
+            error_description = response.json().get("error_description", "")
+
+            if "revoked" in error_description.lower():
+                raise OAuthPermanentError(
+                    f"OAuth token revoked by user for mailbox {mailbox_id}",
+                    error_code="token_revoked"
+                )
+
+            raise OAuthPermanentError(
+                f"OAuth access forbidden for mailbox {mailbox_id}: {error_description}",
+                error_code="forbidden"
+            )
+
+        # Raise for other HTTP errors (will be caught by retry decorator)
+        response.raise_for_status()
+
+        # Parse response
+        token_data = response.json()
+
+        # Encrypt new access token
+        new_access_token_encrypted = encrypt_token(token_data["access_token"])
+        expires_in = token_data.get("expires_in", 3600)
+        expires_at = datetime.utcnow() + timedelta(seconds=expires_in)
+
+        return new_access_token_encrypted, expires_at
+
+    except requests.Timeout as e:
+        # Network timeout - retry
+        logger.warning(
+            f"Token refresh timeout for mailbox {mailbox_id} - will retry",
+            extra={"mailbox_id": mailbox_id, "error": str(e)}
+        )
+        raise  # Let tenacity retry
+
+    except requests.ConnectionError as e:
+        # Connection error - retry
+        logger.warning(
+            f"Token refresh connection error for mailbox {mailbox_id} - will retry",
+            extra={"mailbox_id": mailbox_id, "error": str(e)}
+        )
+        raise  # Let tenacity retry
+
+    except OAuthPermanentError:
+        # Permanent error - don't retry, raise immediately
+        raise
+
+    except Exception as e:
+        # Unexpected error - log and raise as transient (will retry)
+        logger.error(
+            f"Unexpected error during token refresh for mailbox {mailbox_id}: {e}",
+            extra={"mailbox_id": mailbox_id, "error_type": type(e).__name__}
+        )
+        raise OAuthTransientError(f"Unexpected error: {e}")
+
+
+async def handle_token_refresh_failure(
+    mailbox_id: str,
+    error: Exception,
+    attempt: int,
+    session,
+):
+    """
+    Handle token refresh failure with appropriate action.
+
+    Actions depend on failure type and attempt number:
+    - Attempt 1: Log warning (no user notification yet)
+    - Attempt 2: Send gentle email to user ("Having trouble connecting")
+    - Attempt 3: Disable mailbox, send urgent email ("Please reconnect")
+
+    For permanent failures: Disable immediately and notify user.
+
+    Args:
+        mailbox_id: Mailbox UUID
+        error: Exception that occurred
+        attempt: Attempt number (1, 2, or 3)
+        session: Async database session
+    """
+    from app.models.mailbox import Mailbox
+    from app.models.user import User
+
+    # Get mailbox
+    mailbox = await session.get(Mailbox, mailbox_id)
+    if not mailbox:
+        logger.error(f"Mailbox {mailbox_id} not found during failure handling")
+        return
+
+    # Get user for notifications
+    user = await session.get(User, mailbox.user_id)
+
+    if isinstance(error, OAuthPermanentError):
+        # Permanent failure - disable immediately, notify user
+        mailbox.is_active = False
+        mailbox.token_refresh_failed_at = datetime.utcnow()
+        mailbox.token_refresh_error = f"{error.error_code}: {str(error)}"
+        mailbox.token_refresh_attempt_count = 0  # Reset counter
+        await session.commit()
+
+        logger.error(
+            f"Permanent OAuth failure for mailbox {mailbox_id}: {error.error_code}",
+            extra={"mailbox_id": mailbox_id, "error_code": error.error_code}
+        )
+
+        # Send email to user immediately
+        # TODO: Implement email sending (Task 7)
+        # await send_email(
+        #     to=user.email,
+        #     subject="Inbox Janitor: Please reconnect your Gmail account",
+        #     template="token_refresh_permanent_failure",
+        #     data={
+        #         "mailbox_email": mailbox.email_address,
+        #         "error_reason": error.error_code,
+        #         "reconnect_url": f"{settings.APP_URL}/auth/gmail"
+        #     }
+        # )
+
+        return
+
+    # Transient failure - handle based on attempt number
+    if attempt == 1:
+        # First failure - just log, don't notify yet
+        mailbox.token_refresh_attempt_count = 1
+        await session.commit()
+
+        logger.warning(
+            f"Token refresh attempt 1 failed for mailbox {mailbox_id} - will retry",
+            extra={
+                "mailbox_id": mailbox_id,
+                "error": str(error),
+                "error_type": type(error).__name__
+            }
+        )
+
+    elif attempt == 2:
+        # Second failure - send gentle email
+        mailbox.token_refresh_attempt_count = 2
+        await session.commit()
+
+        logger.warning(
+            f"Token refresh attempt 2 failed for mailbox {mailbox_id} - will retry once more",
+            extra={"mailbox_id": mailbox_id}
+        )
+
+        # TODO: Implement email sending (Task 7)
+        # await send_email(
+        #     to=user.email,
+        #     subject="Inbox Janitor: Having trouble connecting to Gmail",
+        #     template="token_refresh_retry",
+        #     data={
+        #         "mailbox_email": mailbox.email_address,
+        #         "attempt": attempt,
+        #         "next_retry": "in a few moments"
+        #     }
+        # )
+
+    elif attempt >= 3:
+        # Third failure - disable mailbox, send urgent email
+        logger.error(
+            f"Token refresh failed after 3 attempts for mailbox {mailbox_id} - disabling",
+            extra={"mailbox_id": mailbox_id}
+        )
+
+        mailbox.is_active = False
+        mailbox.token_refresh_failed_at = datetime.utcnow()
+        mailbox.token_refresh_error = f"Failed after 3 attempts: {error}"
+        mailbox.token_refresh_attempt_count = 3
+        await session.commit()
+
+        # TODO: Implement email sending (Task 7)
+        # await send_email(
+        #     to=user.email,
+        #     subject="Inbox Janitor: Gmail connection needs attention",
+        #     template="token_refresh_final_failure",
+        #     data={
+        #         "mailbox_email": mailbox.email_address,
+        #         "failure_count": attempt,
+        #         "reconnect_url": f"{settings.APP_URL}/auth/gmail",
+        #         "support_email": "support@inboxjanitor.app"
+        #     }
+        # )
+
+
 async def get_gmail_service(mailbox_id: str):
     """
     Get authenticated Gmail API service for a mailbox.
@@ -322,27 +625,40 @@ async def get_gmail_service(mailbox_id: str):
         # Check if token is expired or will expire soon (within 5 minutes)
         from datetime import datetime, timedelta
         if mailbox.token_expires_at and mailbox.token_expires_at < datetime.utcnow() + timedelta(minutes=5):
+            attempt = 0
             try:
-                # Refresh token
-                new_access_token, new_expires_at = gmail_oauth.refresh_access_token(
+                # Refresh token with retry logic (PRD-0007)
+                attempt = mailbox.token_refresh_attempt_count + 1
+                new_access_token, new_expires_at = await refresh_access_token_with_retry(
+                    str(mailbox_id),
                     mailbox.encrypted_refresh_token
                 )
 
-                # Update mailbox with new token
+                # Success! Update mailbox with new token
                 mailbox.encrypted_access_token = new_access_token
                 mailbox.token_expires_at = new_expires_at
+                # Reset failure tracking on success
+                mailbox.token_refresh_attempt_count = 0
+                mailbox.token_refresh_failed_at = None
+                mailbox.token_refresh_error = None
                 await session.commit()
 
-            except Exception as e:
-                # Token refresh failed - mark mailbox as inactive
-                mailbox.is_active = False
-                await session.commit()
+                logger.info(
+                    f"Token refresh successful for mailbox {mailbox_id}",
+                    extra={"mailbox_id": str(mailbox_id)}
+                )
+
+            except (OAuthPermanentError, OAuthTransientError) as e:
+                # Handle failure with retry logic and user notification
+                await handle_token_refresh_failure(str(mailbox_id), e, attempt, session)
 
                 # Log to Sentry
                 import sentry_sdk
                 sentry_sdk.capture_exception(e, extra={
                     "mailbox_id": str(mailbox_id),
-                    "error": "Token refresh failed"
+                    "error": "Token refresh failed",
+                    "error_type": type(e).__name__,
+                    "attempt": attempt
                 })
 
                 raise Exception(f"Token refresh failed for mailbox {mailbox_id}. Please re-authenticate.")
