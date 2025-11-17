@@ -1,16 +1,17 @@
 # Inbox Janitor - Development Context
 
-**Last Updated:** 2025-11-15
-**Status:** ⚠️ Safety Restoration In Progress (2 of 5 PRDs Complete)
-**Current Phase:** Post-Incident Recovery & PRD-0007 Next
+**Last Updated:** 2025-11-17
+**Status:** ✅ Safety Restoration In Progress (3 of 5 PRDs Complete)
+**Current Phase:** PRD-0007 (Token Refresh Resilience) - Starting Now
 
 ---
 
 ## 📍 Project Status
 
-**✅ COMPLETED PRDs (2025-11-14 - 2025-11-15):**
-- ✅ **PRD-0005: Safety Rails Restoration** (PR #86) - Deployed
-- ✅ **PRD-0006: Security Monitoring & Alerting** (PR #87, #88, #89) - Deployed with hotfixes
+**✅ COMPLETED PRDs (2025-11-13 - 2025-11-15):**
+- ✅ **PRD-0004: Rate Limiting Architecture Fix** (PR #85) - Deployed Nov 13
+- ✅ **PRD-0005: Safety Rails Restoration** (PR #86) - Deployed Nov 14
+- ✅ **PRD-0006: Security Monitoring & Alerting** (PR #87, #88, #89) - Deployed Nov 14-15 with hotfixes
 
 **🚨 INCIDENT (2025-11-15):**
 - **Alert Rate Limiting Failure** - 140 duplicate admin alerts sent during testing
@@ -23,21 +24,22 @@
 
 **🛠️ Safety Restoration Plan (Priority Order):**
 
-**Phase 1: CRITICAL (P0) - Weeks 1-2**
+**Phase 1: CRITICAL (P0) - Weeks 1-2** ✅ **COMPLETE**
 1. **PRD-0004: Rate Limiting Architecture Fix** (2 days)
-   - Refactor GmailClient to fully async
-   - Eliminate rate limit bypass in async contexts
-   - Status: ⏳ Ready to implement
+   - Status: ✅ **COMPLETED** (PR #85, Nov 13)
+   - Refactored GmailClient to fully async
+   - Eliminated rate limit bypass in async contexts
+   - 100% rate limit enforcement achieved
    - See: `tasks/PRD-0004-rate-limiting-architecture-fix.md`
 
 2. **PRD-0005: Safety Rails Restoration** (3 days)
-   - Status: ✅ **COMPLETED** (PR #86)
+   - Status: ✅ **COMPLETED** (PR #86, Nov 14)
    - Smart short subject detection deployed
    - Negative keyword matching fixed
    - See: `tasks/PRD-0005-safety-rails-restoration.md`
 
 3. **PRD-0006: Security Monitoring & Alerting** (3 days)
-   - Status: ✅ **COMPLETED with hotfixes** (PR #87, #88, #89)
+   - Status: ✅ **COMPLETED with hotfixes** (PR #87, #88, #89, Nov 14-15)
    - Admin alerts operational with rate limiting
    - Worker pause monitoring active
    - Sentry body content detection alerting
@@ -50,7 +52,7 @@
    - Add retry logic (3 attempts with exponential backoff)
    - Distinguish transient vs permanent failures
    - Immediate user notifications
-   - Status: ⏳ Ready to implement
+   - Status: 🔄 **IN PROGRESS** (Starting Nov 17)
    - See: `tasks/PRD-0007-token-refresh-resilience.md`
 
 5. **PRD-0008: Test Coverage Recovery** (4-5 weeks, parallel work)
@@ -70,11 +72,11 @@
 - False test coverage: 55 tests skipped (27.5% of test suite) (HIGH)
 
 **🎯 Success Criteria (Before Resuming Other Work):**
-- [ ] Rate limiting enforced 100% (zero bypass warnings)
-- [ ] Safety rails enabled with <0.1% false positive rate
-- [ ] Admin alerts operational (60 second response time)
-- [ ] Token refresh 95% automatic recovery rate
-- [ ] Test coverage >90% (real, not inflated)
+- [x] Rate limiting enforced 100% (zero bypass warnings) ✅ **DONE** (PR #85)
+- [x] Safety rails enabled with <0.1% false positive rate ✅ **DONE** (PR #86)
+- [x] Admin alerts operational (60 second response time) ✅ **DONE** (PR #87)
+- [ ] Token refresh 95% automatic recovery rate ⏳ **IN PROGRESS** (PRD-0007)
+- [ ] Test coverage >90% (real, not inflated) ⏳ **TODO** (PRD-0008)
 
 **⏸️ PAUSED Until Safety Restoration Complete:**
 - Classifier tuning (unsubscribe signal adjustment)
