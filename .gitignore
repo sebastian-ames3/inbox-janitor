@@ -1,6 +1,9 @@
 # Environment variables (NEVER commit these)
 .env
 
+# Development context (internal use only, not for GitHub)
+.dev_context/
+
 # Python
 __pycache__/
 *.py[cod]

@@ -8,7 +8,7 @@ HTML templates use inline CSS for maximum email client compatibility.
 # WELCOME EMAIL (Sent after OAuth connection)
 # ============================================================================
 
-WELCOME_EMAIL_SUBJECT = "Welcome to Inbox Janitor! >�"
+WELCOME_EMAIL_SUBJECT = "Welcome to Inbox Janitor! 🧹"
 
 WELCOME_EMAIL_HTML = """<!DOCTYPE html>
 <html>
@@ -27,7 +27,7 @@ WELCOME_EMAIL_HTML = """<!DOCTYPE html>
                     <tr>
                         <td style="padding: 40px 40px 20px; text-align: center;">
                             <h1 style="margin: 0; font-size: 32px; color: #111827; font-weight: 700;">
-                                >� Welcome to Inbox Janitor!
+                                🧹 Welcome to Inbox Janitor!
                             </h1>
                         </td>
                     </tr>
@@ -36,7 +36,7 @@ WELCOME_EMAIL_HTML = """<!DOCTYPE html>
                     <tr>
                         <td style="padding: 20px 40px 40px;">
                             <p style="margin: 0 0 20px; font-size: 16px; line-height: 1.6; color: #374151;">
-                                Hi there! =K
+                                Hi there! 👋
                             </p>
 
                             <p style="margin: 0 0 20px; font-size: 16px; line-height: 1.6; color: #374151;">
@@ -62,7 +62,7 @@ WELCOME_EMAIL_HTML = """<!DOCTYPE html>
                             <!-- Sandbox mode notice -->
                             <div style="background-color: #fef3c7; border-left: 4px solid: #f59e0b; padding: 16px; margin: 30px 0; border-radius: 4px;">
                                 <p style="margin: 0; font-size: 15px; line-height: 1.5; color: #92400e;">
-                                    <strong>=� Sandbox Mode Active:</strong> We're currently in <em>review-only mode</em>. No emails will be moved until you enable Action Mode in your settings. This lets you safely review our decisions first!
+                                    <strong>ℹ️ Sandbox Mode Active:</strong> We're currently in <em>review-only mode</em>. No emails will be moved until you enable Action Mode in your settings. This lets you safely review our decisions first!
                                 </p>
                             </div>
 
@@ -71,7 +71,7 @@ WELCOME_EMAIL_HTML = """<!DOCTYPE html>
                                 <tr>
                                     <td align="center">
                                         <a href="{dashboard_link}" style="display: inline-block; padding: 14px 32px; background-color: #2563eb; color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 16px; font-weight: 600;">
-                                            Go to Settings Dashboard �
+                                            Go to Settings Dashboard →
                                         </a>
                                     </td>
                                 </tr>
@@ -82,7 +82,7 @@ WELCOME_EMAIL_HTML = """<!DOCTYPE html>
                             </p>
 
                             <p style="margin: 20px 0 0; font-size: 16px; line-height: 1.6; color: #374151;">
-                                Happy cleaning! >�<br>
+                                Happy cleaning! 🧹<br>
                                 <span style="color: #6b7280;">The Inbox Janitor Team</span>
                             </p>
                         </td>
@@ -106,9 +106,9 @@ WELCOME_EMAIL_HTML = """<!DOCTYPE html>
 </body>
 </html>"""
 
-WELCOME_EMAIL_TEXT = """Welcome to Inbox Janitor! >�
+WELCOME_EMAIL_TEXT = """Welcome to Inbox Janitor! 🧹
 
-Hi there! =K
+Hi there! 👋
 
 You've successfully connected {connected_email} to Inbox Janitor. We're excited to help you keep your inbox clean!
 
@@ -120,14 +120,14 @@ Here's what happens next:
 
 3. You'll get a weekly summary every Sunday showing what we moved and giving you a chance to undo anything.
 
-=� SANDBOX MODE ACTIVE:
+ℹ️ SANDBOX MODE ACTIVE:
 We're currently in review-only mode. No emails will be moved until you enable Action Mode in your settings. This lets you safely review our decisions first!
 
 Go to Settings Dashboard: {dashboard_link}
 
 Questions? Just reply to this emailwe'd love to hear from you!
 
-Happy cleaning! >�
+Happy cleaning! 🧹
 The Inbox Janitor Team
 
 ---
@@ -140,7 +140,7 @@ Support: support@inboxjanitor.com
 # WEEKLY DIGEST EMAIL
 # ============================================================================
 
-WEEKLY_DIGEST_SUBJECT = "Your Weekly Inbox Summary =�"
+WEEKLY_DIGEST_SUBJECT = "Your Weekly Inbox Summary ℹ️"
 
 WEEKLY_DIGEST_HTML = """<!DOCTYPE html>
 <html>
@@ -158,7 +158,7 @@ WEEKLY_DIGEST_HTML = """<!DOCTYPE html>
                     <tr>
                         <td style="padding: 32px 32px 16px;">
                             <h1 style="margin: 0; font-size: 28px; color: #111827; font-weight: 700;">
-                                =� Your Weekly Summary
+                                ℹ️ Your Weekly Summary
                             </h1>
                             <p style="margin: 8px 0 0; font-size: 14px; color: #6b7280;">
                                 {period_start} - {period_end}
@@ -203,7 +203,7 @@ WEEKLY_DIGEST_HTML = """<!DOCTYPE html>
                                 <tr>
                                     <td align="center">
                                         <a href="{audit_link}" style="display: inline-block; padding: 12px 28px; background-color: #2563eb; color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 15px; font-weight: 600;">
-                                            View Full Activity Log �
+                                            View Full Activity Log →
                                         </a>
                                     </td>
                                 </tr>
@@ -228,7 +228,7 @@ WEEKLY_DIGEST_HTML = """<!DOCTYPE html>
 </body>
 </html>"""
 
-WEEKLY_DIGEST_TEXT = """Your Weekly Inbox Summary =�
+WEEKLY_DIGEST_TEXT = """Your Weekly Inbox Summary ℹ️
 {period_start} - {period_end}
 
 SUMMARY:
@@ -251,7 +251,7 @@ Support: support@inboxjanitor.com
 # BACKLOG ANALYSIS EMAIL (One-time cleanup offer)
 # ============================================================================
 
-BACKLOG_ANALYSIS_SUBJECT = "Clean up {promotional_count:,} old promotional emails? >�"
+BACKLOG_ANALYSIS_SUBJECT = "Clean up {promotional_count:,} old promotional emails? 🧹"
 
 BACKLOG_ANALYSIS_HTML = """<!DOCTYPE html>
 <html>
@@ -268,7 +268,7 @@ BACKLOG_ANALYSIS_HTML = """<!DOCTYPE html>
                     <tr>
                         <td style="padding: 32px;">
                             <h1 style="margin: 0 0 16px; font-size: 28px; color: #111827; font-weight: 700;">
-                                We found {total_old_emails:,} old emails =�
+                                We found {total_old_emails:,} old emails ℹ️
                             </h1>
 
                             <p style="margin: 0 0 24px; font-size: 16px; line-height: 1.6; color: #374151;">
@@ -293,7 +293,7 @@ BACKLOG_ANALYSIS_HTML = """<!DOCTYPE html>
                                 <tr>
                                     <td align="center">
                                         <a href="{cleanup_link}" style="display: inline-block; padding: 14px 32px; background-color: #2563eb; color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 16px; font-weight: 600;">
-                                            Yes, Clean Up My Backlog �
+                                            Yes, Clean Up My Backlog →
                                         </a>
                                     </td>
                                 </tr>
@@ -312,7 +312,7 @@ BACKLOG_ANALYSIS_HTML = """<!DOCTYPE html>
 </body>
 </html>"""
 
-BACKLOG_ANALYSIS_TEXT = """We found {total_old_emails:,} old emails =�
+BACKLOG_ANALYSIS_TEXT = """We found {total_old_emails:,} old emails ℹ️
 
 Good news! We analyzed your inbox and found {promotional_count:,} promotional emails that could be cleaned up automatically.
 

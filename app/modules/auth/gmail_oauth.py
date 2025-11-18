@@ -655,37 +655,3 @@ async def get_gmail_service(mailbox_id: str):
         return gmail_oauth.build_gmail_service(mailbox.encrypted_access_token)
 
 
-async def decrypt_and_refresh_token(mailbox) -> str:
-    """
-    Decrypt access token and refresh if needed.
-
-    Args:
-        mailbox: Mailbox SQLAlchemy object
-
-    Returns:
-        Decrypted access token (plaintext)
-
-    Raises:
-        Exception: If token refresh fails
-
-    WARNING: This returns plaintext token. Never log it!
-
-    Usage:
-        access_token = await decrypt_and_refresh_token(mailbox)
-        # Use token for API calls
-    """
-    from datetime import datetime, timedelta
-
-    # Check if token needs refresh
-    if mailbox.token_expires_at and mailbox.token_expires_at < datetime.utcnow() + timedelta(minutes=5):
-        # Refresh token
-        new_encrypted_access, new_expires_at = gmail_oauth.refresh_access_token(
-            mailbox.encrypted_refresh_token
-        )
-
-        # Update mailbox (caller should commit)
-        mailbox.encrypted_access_token = new_encrypted_access
-        mailbox.token_expires_at = new_expires_at
-
-    # Decrypt and return access token
-    return decrypt_token(mailbox.encrypted_access_token)
