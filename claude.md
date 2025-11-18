@@ -1,8 +1,8 @@
 # Inbox Janitor - Development Context
 
-**Last Updated:** 2025-11-15
-**Status:** ⚠️ Safety Restoration In Progress (2 of 5 PRDs Complete)
-**Current Phase:** Post-Incident Recovery & PRD-0007 Next
+**Last Updated:** 2025-11-18
+**Status:** ✅ Safety Restoration In Progress (4 of 5 PRDs Complete)
+**Current Phase:** PRD-0007 Complete - PRD-0008 (Test Coverage) Next
 
 ---
 
@@ -46,11 +46,14 @@
    - See: `tasks/PRD-0006-security-monitoring-alerting.md`
 
 **Phase 2: HIGH (P1) - Weeks 3-5 (~12 days)**
-4. **PRD-0007: Token Refresh Resilience** (3 days, Week 3)
+4. **PRD-0007: Token Refresh Resilience** (18 hours actual, est. 24h)
    - Add retry logic (3 attempts with exponential backoff)
    - Distinguish transient vs permanent failures
    - Immediate user notifications
-   - Status: ⏳ Ready to implement
+   - Email templates created and wired up
+   - Dashboard indicators added
+   - 12 comprehensive tests (all passing)
+   - Status: ✅ **COMPLETED** (PR merged Nov 18)
    - See: `tasks/PRD-0007-token-refresh-resilience.md`
 
 5. **PRD-0008: Test Coverage Recovery** (4-5 weeks, parallel work)
@@ -70,11 +73,11 @@
 - False test coverage: 55 tests skipped (27.5% of test suite) (HIGH)
 
 **🎯 Success Criteria (Before Resuming Other Work):**
-- [ ] Rate limiting enforced 100% (zero bypass warnings)
-- [ ] Safety rails enabled with <0.1% false positive rate
-- [ ] Admin alerts operational (60 second response time)
-- [ ] Token refresh 95% automatic recovery rate
-- [ ] Test coverage >90% (real, not inflated)
+- [x] Rate limiting enforced 100% (zero bypass warnings) ✅ DONE (PR #85)
+- [x] Safety rails enabled with <0.1% false positive rate ✅ DONE (PR #86)
+- [x] Admin alerts operational (60 second response time) ✅ DONE (PR #87-89)
+- [x] Token refresh 95% automatic recovery rate ✅ DONE (PRD-0007, merged Nov 18)
+- [ ] Test coverage >90% (real, not inflated) ⏳ TODO (PRD-0008)
 
 **⏸️ PAUSED Until Safety Restoration Complete:**
 - Classifier tuning (unsubscribe signal adjustment)

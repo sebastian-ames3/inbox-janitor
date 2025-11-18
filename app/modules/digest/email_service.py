@@ -8,10 +8,53 @@ Security notes:
 """
 
 import re
-from typing import Optional
+from typing import Optional, Dict, Any
+from pathlib import Path
+from jinja2 import Environment, FileSystemLoader, select_autoescape
 from postmarker.core import PostmarkClient
+import html2text
 
 from app.core.config import settings
+
+
+# Initialize Jinja2 environment for email templates
+_template_env = None
+
+def get_template_env() -> Environment:
+    """Get or create Jinja2 environment for email templates."""
+    global _template_env
+    if _template_env is None:
+        template_dir = Path(__file__).parent.parent.parent / "templates" / "emails"
+        _template_env = Environment(
+            loader=FileSystemLoader(str(template_dir)),
+            autoescape=select_autoescape(['html', 'xml'])
+        )
+    return _template_env
+
+
+def render_email_template(template_name: str, data: Dict[str, Any]) -> tuple[str, str]:
+    """
+    Render email template (HTML + text version).
+
+    Args:
+        template_name: Template filename (e.g., "token_refresh_retry.html")
+        data: Template variables dict
+
+    Returns:
+        Tuple of (html_body, text_body)
+    """
+    env = get_template_env()
+    template = env.get_template(template_name)
+    html_body = template.render(**data)
+
+    # Convert HTML to plain text for text_body
+    h = html2text.HTML2Text()
+    h.ignore_links = False
+    h.ignore_images = True
+    h.body_width = 78
+    text_body = h.handle(html_body)
+
+    return html_body, text_body
 
 
 def get_postmark_client() -> PostmarkClient:
@@ -427,4 +470,172 @@ async def send_backlog_analysis(user_email: str, backlog_data: dict) -> bool:
 
     except Exception as e:
         print(f"[Digest] Error sending backlog analysis to {user_email}: {str(e)}")
+        return False
+
+# ============================================================================
+# Token Refresh Email Functions (PRD-0007)
+# ============================================================================
+
+async def send_token_refresh_retry_email(user_email: str, mailbox_email: str, attempt: int) -> bool:
+    """
+    Send gentle warning email on 2nd token refresh failure.
+
+    Args:
+        user_email: User's email address  
+        mailbox_email: Gmail address having connection issues
+        attempt: Attempt number (should be 2)
+
+    Returns:
+        True if email sent successfully
+
+    Example:
+        >>> await send_token_refresh_retry_email(
+        ...     user_email="user@example.com",
+        ...     mailbox_email="work@gmail.com",
+        ...     attempt=2
+        ... )
+        True
+    """
+    try:
+        html_body, text_body = render_email_template(
+            "token_refresh_retry.html",
+            {
+                "mailbox_email": mailbox_email,
+                "attempt": attempt,
+                "next_retry": "in a few moments"
+            }
+        )
+
+        success = await send_email(
+            to=user_email,
+            subject="Inbox Janitor: Having trouble connecting to Gmail",
+            html_body=html_body,
+            text_body=text_body,
+            tag='token-refresh-retry'
+        )
+
+        if success:
+            print(f"[OAuth] Token refresh retry email sent to {user_email} (mailbox: {mailbox_email})")
+        else:
+            print(f"[OAuth] Failed to send token refresh retry email to {user_email}")
+
+        return success
+
+    except Exception as e:
+        print(f"[OAuth] Error sending token refresh retry email to {user_email}: {str(e)}")
+        return False
+
+
+async def send_token_refresh_final_failure_email(
+    user_email: str,
+    mailbox_email: str,
+    failure_count: int,
+    reconnect_url: str
+) -> bool:
+    """
+    Send urgent email after 3rd token refresh failure (mailbox disabled).
+
+    Args:
+        user_email: User's email address
+        mailbox_email: Gmail address that was disabled
+        failure_count: Number of failed attempts (should be 3)
+        reconnect_url: Full URL to reconnect Gmail
+
+    Returns:
+        True if email sent successfully
+
+    Example:
+        >>> await send_token_refresh_final_failure_email(
+        ...     user_email="user@example.com",
+        ...     mailbox_email="work@gmail.com",
+        ...     failure_count=3,
+        ...     reconnect_url="https://app.inboxjanitor.com/auth/gmail"
+        ... )
+        True
+    """
+    try:
+        html_body, text_body = render_email_template(
+            "token_refresh_final_failure.html",
+            {
+                "mailbox_email": mailbox_email,
+                "failure_count": failure_count,
+                "reconnect_url": reconnect_url,
+                "support_email": "support@inboxjanitor.com"
+            }
+        )
+
+        success = await send_email(
+            to=user_email,
+            subject="Inbox Janitor: Gmail connection needs attention",
+            html_body=html_body,
+            text_body=text_body,
+            tag='token-refresh-final-failure'
+        )
+
+        if success:
+            print(f"[OAuth] Token refresh final failure email sent to {user_email} (mailbox: {mailbox_email})")
+        else:
+            print(f"[OAuth] Failed to send token refresh final failure email to {user_email}")
+
+        return success
+
+    except Exception as e:
+        print(f"[OAuth] Error sending token refresh final failure email to {user_email}: {str(e)}")
+        return False
+
+
+async def send_token_refresh_permanent_failure_email(
+    user_email: str,
+    mailbox_email: str,
+    error_reason: str,
+    reconnect_url: str
+) -> bool:
+    """
+    Send immediate email for permanent token refresh failure (invalid_grant, token_revoked).
+
+    Args:
+        user_email: User's email address
+        mailbox_email: Gmail address that was disabled
+        error_reason: Error code (invalid_grant, token_revoked, forbidden)
+        reconnect_url: Full URL to reconnect Gmail
+
+    Returns:
+        True if email sent successfully
+
+    Example:
+        >>> await send_token_refresh_permanent_failure_email(
+        ...     user_email="user@example.com",
+        ...     mailbox_email="work@gmail.com",
+        ...     error_reason="invalid_grant",
+        ...     reconnect_url="https://app.inboxjanitor.com/auth/gmail"
+        ... )
+        True
+    """
+    try:
+        html_body, text_body = render_email_template(
+            "token_refresh_permanent_failure.html",
+            {
+                "mailbox_email": mailbox_email,
+                "error_reason": error_reason,
+                "reconnect_url": reconnect_url
+            }
+        )
+
+        success = await send_email(
+            to=user_email,
+            subject="Inbox Janitor: Please reconnect your Gmail account",
+            html_body=html_body,
+            text_body=text_body,
+            tag='token-refresh-permanent-failure'
+        )
+
+        if success:
+            print(f"[OAuth] Token refresh permanent failure email sent to {user_email} (mailbox: {mailbox_email}, reason: {error_reason})")
+        else:
+            print(f"[OAuth] Failed to send token refresh permanent failure email to {user_email}")
+
+        return success
+
+    except Exception as e:
+        print(f"[OAuth] Error sending token refresh permanent failure email to {user_email}: {str(e)}")
         return False

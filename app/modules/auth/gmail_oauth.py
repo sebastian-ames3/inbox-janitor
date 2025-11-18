@@ -502,17 +502,13 @@ async def handle_token_refresh_failure(
         )
 
         # Send email to user immediately
-        # TODO: Implement email sending (Task 7)
-        # await send_email(
-        #     to=user.email,
-        #     subject="Inbox Janitor: Please reconnect your Gmail account",
-        #     template="token_refresh_permanent_failure",
-        #     data={
-        #         "mailbox_email": mailbox.email_address,
-        #         "error_reason": error.error_code,
-        #         "reconnect_url": f"{settings.APP_URL}/auth/gmail"
-        #     }
-        # )
+        from app.modules.digest.email_service import send_token_refresh_permanent_failure_email
+        await send_token_refresh_permanent_failure_email(
+            user_email=user.email,
+            mailbox_email=mailbox.email_address,
+            error_reason=error.error_code or "unknown",
+            reconnect_url=f"{settings.APP_URL}/auth/gmail"
+        )
 
         return
 
@@ -541,17 +537,13 @@ async def handle_token_refresh_failure(
             extra={"mailbox_id": mailbox_id}
         )
 
-        # TODO: Implement email sending (Task 7)
-        # await send_email(
-        #     to=user.email,
-        #     subject="Inbox Janitor: Having trouble connecting to Gmail",
-        #     template="token_refresh_retry",
-        #     data={
-        #         "mailbox_email": mailbox.email_address,
-        #         "attempt": attempt,
-        #         "next_retry": "in a few moments"
-        #     }
-        # )
+        # Send gentle warning email
+        from app.modules.digest.email_service import send_token_refresh_retry_email
+        await send_token_refresh_retry_email(
+            user_email=user.email,
+            mailbox_email=mailbox.email_address,
+            attempt=attempt
+        )
 
     elif attempt >= 3:
         # Third failure - disable mailbox, send urgent email
@@ -566,18 +558,14 @@ async def handle_token_refresh_failure(
         mailbox.token_refresh_attempt_count = 3
         await session.commit()
 
-        # TODO: Implement email sending (Task 7)
-        # await send_email(
-        #     to=user.email,
-        #     subject="Inbox Janitor: Gmail connection needs attention",
-        #     template="token_refresh_final_failure",
-        #     data={
-        #         "mailbox_email": mailbox.email_address,
-        #         "failure_count": attempt,
-        #         "reconnect_url": f"{settings.APP_URL}/auth/gmail",
-        #         "support_email": "support@inboxjanitor.app"
-        #     }
-        # )
+        # Send urgent reconnection email
+        from app.modules.digest.email_service import send_token_refresh_final_failure_email
+        await send_token_refresh_final_failure_email(
+            user_email=user.email,
+            mailbox_email=mailbox.email_address,
+            failure_count=attempt,
+            reconnect_url=f"{settings.APP_URL}/auth/gmail"
+        )
 
 
 async def get_gmail_service(mailbox_id: str):
